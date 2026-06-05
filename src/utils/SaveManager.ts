@@ -1,0 +1,83 @@
+import { SaveData } from '../types';
+
+export class SaveManager {
+  private static instance: SaveManager;
+  private readonly STORAGE_KEY: string = 'elevator_survival_save';
+  private defaultData: SaveData = {
+    highScore: 0,
+    totalPills: 0,
+    gamesPlayed: 0
+  };
+
+  private constructor() {
+    this.initializeSave();
+  }
+
+  static getInstance(): SaveManager {
+    if (!SaveManager.instance) {
+      SaveManager.instance = new SaveManager();
+    }
+    return SaveManager.instance;
+  }
+
+  private initializeSave(): void {
+    if (!localStorage.getItem(this.STORAGE_KEY)) {
+      this.saveGameData(this.defaultData);
+    }
+  }
+
+  getSaveData(): SaveData {
+    try {
+      const saved = localStorage.getItem(this.STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      return { ...this.defaultData };
+    } catch (e) {
+      console.warn('Failed to load save data:', e);
+      return { ...this.defaultData };
+    }
+  }
+
+  saveGameData(data: Partial<SaveData>): void {
+    try {
+      const currentData = this.getSaveData();
+      const newData: SaveData = {
+        ...currentData,
+        ...data
+      };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(newData));
+    } catch (e) {
+      console.warn('Failed to save game data:', e);
+    }
+  }
+
+  getHighScore(): number {
+    return this.getSaveData().highScore;
+  }
+
+  setHighScore(score: number): void {
+    const current = this.getHighScore();
+    if (score > current) {
+      this.saveGameData({ highScore: score });
+    }
+  }
+
+  addPills(count: number): void {
+    const data = this.getSaveData();
+    this.saveGameData({ totalPills: data.totalPills + count });
+  }
+
+  incrementGamesPlayed(): void {
+    const data = this.getSaveData();
+    this.saveGameData({ gamesPlayed: data.gamesPlayed + 1 });
+  }
+
+  resetSaveData(): void {
+    this.saveGameData(this.defaultData);
+  }
+
+  isNewHighScore(score: number): boolean {
+    return score > this.getHighScore();
+  }
+}
