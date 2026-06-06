@@ -10,7 +10,8 @@ import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
-import { SeasonTaskType } from '../types';
+import { SeasonTaskType, ClubBuff } from '../types';
+import { ClubManager } from '../utils/ClubManager';
 
 export class EndlessScene extends Phaser.Scene {
   private player!: Player;
@@ -46,6 +47,7 @@ export class EndlessScene extends Phaser.Scene {
   private currentChaseState: GuardChaseState = GuardChaseState.PATROL;
   private chaseStateCheckTimer!: Phaser.Time.TimerEvent;
   private platformTrapManager!: PlatformTrapManager;
+  private clubBuff!: ClubBuff;
 
   constructor() {
     super('EndlessScene');
@@ -58,6 +60,10 @@ export class EndlessScene extends Phaser.Scene {
     this.seasonManager = SeasonManager.getInstance();
     this.seasonManager.checkReset();
     this.achievementManager.resetInGameStats();
+
+    const clubManager = ClubManager.getInstance();
+    this.clubBuff = clubManager.getCurrentBuff();
+
     this.isGameOver = false;
     this.rawScore = 0;
     this.pillCount = 0;
@@ -69,8 +75,8 @@ export class EndlessScene extends Phaser.Scene {
     this.maxComboInGame = 0;
     this.lastComboTime = 0;
     this.currentMultiplier = 1.0;
-    this.totalTime = GameConfig.endlessBaseTime;
-    this.timeRemaining = GameConfig.endlessBaseTime;
+    this.totalTime = GameConfig.endlessBaseTime + this.clubBuff.baseTimeBonus;
+    this.timeRemaining = GameConfig.endlessBaseTime + this.clubBuff.baseTimeBonus;
     this.highestPlatformFloor = 0;
     this.survivalStartTime = this.time.now;
     this.currentChaseState = GuardChaseState.PATROL;
@@ -112,7 +118,7 @@ export class EndlessScene extends Phaser.Scene {
   }
 
   private getFinalScore(): number {
-    return Math.floor(this.rawScore * this.currentMultiplier);
+    return Math.floor(this.rawScore * this.currentMultiplier * this.clubBuff.scoreMultiplier);
   }
 
   private createBackground(): void {
@@ -251,7 +257,8 @@ export class EndlessScene extends Phaser.Scene {
     this.comboCheckTimer = this.time.addEvent({
       delay: 100,
       callback: () => {
-        if (this.currentCombo > 0 && this.time.now - this.lastComboTime > GameConfig.comboTimeoutMs) {
+        const effectiveComboTimeout = GameConfig.comboTimeoutMs + this.clubBuff.comboTimeoutBonus;
+        if (this.currentCombo > 0 && this.time.now - this.lastComboTime > effectiveComboTimeout) {
           this.resetCombo();
         }
       },
@@ -315,8 +322,8 @@ export class EndlessScene extends Phaser.Scene {
     const chaseConfig = GuardChaseStateConfig[this.currentChaseState];
     return {
       guardSpawnMul: result.guardSpawnMul * chaseConfig.spawnMultiplier,
-      guardSpeedMul: result.guardSpeedMul,
-      pillSpawnMul: result.pillSpawnMul
+      guardSpeedMul: result.guardSpeedMul * (1 - this.clubBuff.guardSpeedReduction),
+      pillSpawnMul: result.pillSpawnMul * this.clubBuff.pillSpawnMultiplier
     };
   }
 

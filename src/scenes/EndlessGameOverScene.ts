@@ -6,6 +6,8 @@ import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
 import { AchievementRarityConfig } from '../config/AchievementConfig';
+import { ClubManager } from '../utils/ClubManager';
+import { SCORE_TO_CLUB_COIN_RATIO } from '../config/ClubConfig';
 
 export class EndlessGameOverScene extends Phaser.Scene {
   private audioManager!: AudioManager;
@@ -21,6 +23,7 @@ export class EndlessGameOverScene extends Phaser.Scene {
   private maxAddiction: number = 0;
   private hallucinations: number = 0;
   private lossOfControl: number = 0;
+  private clubCoinsEarned: number = 0;
 
   constructor() {
     super('EndlessGameOverScene');
@@ -57,6 +60,12 @@ export class EndlessGameOverScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#1a0a2e');
+
+    const clubManager = ClubManager.getInstance();
+    this.clubCoinsEarned = clubManager.convertScoreToClubCoins(this.finalScore);
+    if (this.clubCoinsEarned > 0) {
+      clubManager.addClubCoins(this.clubCoinsEarned);
+    }
 
     this.add.rectangle(GameConfig.width / 2, 0, GameConfig.width, GameConfig.height, 0x000000, 0.85);
 
@@ -109,7 +118,33 @@ export class EndlessGameOverScene extends Phaser.Scene {
       color: '#ff66ff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
-    nextY += 50;
+    nextY += 45;
+
+    if (this.clubCoinsEarned > 0) {
+      const coinBg = this.add.graphics();
+      coinBg.fillStyle(0x1a0a2e, 0.9);
+      coinBg.fillRoundedRect(GameConfig.width / 2 - 110, nextY, 220, 38, 8);
+      coinBg.lineStyle(2, 0xffcc00, 0.7);
+      coinBg.strokeRoundedRect(GameConfig.width / 2 - 110, nextY, 220, 38, 8);
+
+      this.add.text(GameConfig.width / 2, nextY + 19, `💰 获得 ${this.clubCoinsEarned} 夜店币！`, {
+        fontSize: '18px',
+        color: '#ffcc00',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.add.text(GameConfig.width / 2, nextY + 45, `(${this.finalScore} ÷ ${SCORE_TO_CLUB_COIN_RATIO})`, {
+        fontSize: '11px',
+        color: '#998844'
+      }).setOrigin(0.5);
+      nextY += 70;
+    } else {
+      this.add.text(GameConfig.width / 2, nextY + 10, `(得分达到${SCORE_TO_CLUB_COIN_RATIO}可兑换1夜店币)`, {
+        fontSize: '11px',
+        color: '#666666'
+      }).setOrigin(0.5);
+      nextY += 35;
+    }
 
     this.createBreakdownPanel(nextY);
     const hasSideEffects = this.maxAddiction > 0 || this.hallucinations > 0 || this.lossOfControl > 0;
@@ -117,6 +152,27 @@ export class EndlessGameOverScene extends Phaser.Scene {
 
     this.createLeaderboardPanel(nextY);
     nextY += 240;
+
+    const clubBtn = this.add.text(GameConfig.width / 2, nextY - 45, '🎵 前往夜店经营', {
+      fontSize: '16px',
+      color: '#ffffff',
+      backgroundColor: '#ff00aa',
+      padding: { left: 20, right: 20, top: 6, bottom: 6 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    clubBtn.on('pointerover', () => {
+      clubBtn.setBackgroundColor('#ff33bb');
+      this.audioManager.play('hover');
+    });
+
+    clubBtn.on('pointerout', () => {
+      clubBtn.setBackgroundColor('#ff00aa');
+    });
+
+    clubBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('ClubScene');
+    });
 
     const restartBtn = this.add.text(GameConfig.width / 2 - 90, nextY, '再来一局', {
       fontSize: '22px',

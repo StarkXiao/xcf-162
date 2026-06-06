@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
-import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
+import { ClubManager } from '../utils/ClubManager';
 
 export class MenuScene extends Phaser.Scene {
   private saveManager!: SaveManager;
@@ -156,11 +156,41 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ChallengeEditorScene');
     });
 
-    const archiveManager = ArchiveManager.getInstance();
-    const archiveProgress = archiveManager.getArchiveProgress();
-    const archiveTotal = archiveManager.getTotalArchiveCount();
-    const totalUnlocked = archiveProgress.characters + archiveProgress.rumors + archiveProgress.floors;
-    const totalCount = archiveTotal.characters + archiveTotal.rumors + archiveTotal.floors;
+    const clubManager = ClubManager.getInstance();
+    const clubBtn = this.add.text(GameConfig.width / 2, 595, `🎵 夜店经营 💰${clubManager.getClubCoins()}`, {
+      fontSize: '20px',
+      color: '#ffffff',
+      backgroundColor: '#ff00aa',
+      padding: { left: 30, right: 30, top: 10, bottom: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    clubBtn.on('pointerover', () => {
+      clubBtn.setBackgroundColor('#ff33bb');
+      this.audioManager.play('hover');
+    });
+
+    clubBtn.on('pointerout', () => {
+      clubBtn.setBackgroundColor('#ff00aa');
+    });
+
+    clubBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('ClubScene');
+    });
+
+    const clubBuff = clubManager.getCurrentBuff();
+    let clubBuffLabel = '暂无增益';
+    const buffParts: string[] = [];
+    if (clubBuff.scoreMultiplier > 1.0) buffParts.push(`得分x${clubBuff.scoreMultiplier.toFixed(2)}`);
+    if (clubBuff.pillSpawnMultiplier > 1.0) buffParts.push(`药片x${clubBuff.pillSpawnMultiplier.toFixed(2)}`);
+    if (clubBuff.baseTimeBonus > 0) buffParts.push(`时间+${Math.floor(clubBuff.baseTimeBonus / 1000)}s`);
+    if (buffParts.length > 0) clubBuffLabel = buffParts.join(' ');
+
+    this.add.text(GameConfig.width / 2, 618, clubBuffLabel, {
+      fontSize: '10px',
+      color: '#ff99dd'
+    }).setOrigin(0.5);
+
     const hasNewUnlocks = this.saveManager.getNewlyUnlocked().length > 0;
 
     const achievementManager = AchievementManager.getInstance();
@@ -170,16 +200,14 @@ export class MenuScene extends Phaser.Scene {
 
     const seasonManager = SeasonManager.getInstance();
     seasonManager.checkReset();
-    const seasonCompleted = seasonManager.getCompletedCount();
-    const seasonTotal = seasonManager.getTotalTaskCount();
     const hasNewSeason = seasonManager.hasClaimableRewards();
     const seasonLevelData = seasonManager.getLevelProgress();
 
-    const achievementBtn = this.add.text(GameConfig.width / 2, 570, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
-      fontSize: '20px',
+    const achievementBtn = this.add.text(GameConfig.width / 2, 642, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
+      fontSize: '17px',
       color: '#ffffff',
       backgroundColor: '#ffaa00',
-      padding: { left: 30, right: 30, top: 8, bottom: 8 }
+      padding: { left: 25, right: 25, top: 6, bottom: 6 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     if (hasNewAchievements) {
@@ -207,16 +235,16 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('AchievementScene');
     });
 
-    this.add.text(GameConfig.width / 2, 598, `成就解锁: ${achUnlocked}/${achTotal}`, {
-      fontSize: '11px',
+    this.add.text(GameConfig.width / 2, 665, `成就: ${achUnlocked}/${achTotal}`, {
+      fontSize: '10px',
       color: '#ffcc66'
     }).setOrigin(0.5);
 
-    const seasonBtn = this.add.text(GameConfig.width / 2, 620, `🏅 赛季任务 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
-      fontSize: '19px',
+    const seasonBtn = this.add.text(GameConfig.width / 2 - 110, 692, `🏅 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
+      fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#00ccaa',
-      padding: { left: 28, right: 28, top: 7, bottom: 7 }
+      padding: { left: 15, right: 15, top: 5, bottom: 5 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     if (hasNewSeason) {
@@ -244,16 +272,11 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('SeasonScene');
     });
 
-    this.add.text(GameConfig.width / 2, 645, `任务完成: ${seasonCompleted}/${seasonTotal} (${seasonManager.getProgressPercent()}%)`, {
-      fontSize: '11px',
-      color: '#66ffcc'
-    }).setOrigin(0.5);
-
-    const archiveBtn = this.add.text(GameConfig.width / 2, 667, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
-      fontSize: '17px',
+    const archiveBtn = this.add.text(GameConfig.width / 2 + 110, 692, `📂 档案 ${hasNewUnlocks ? '🔔' : ''}`, {
+      fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#aa66ff',
-      padding: { left: 25, right: 25, top: 7, bottom: 7 }
+      padding: { left: 15, right: 15, top: 5, bottom: 5 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     if (hasNewUnlocks) {
@@ -281,29 +304,14 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
-    this.add.text(GameConfig.width / 2, 691, `档案解锁: ${totalUnlocked}/${totalCount}`, {
-      fontSize: '11px',
-      color: '#cc99ff'
-    }).setOrigin(0.5);
-
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 708, `生存最高分: ${saveData.highScore}`, {
-      fontSize: '11px',
+    this.add.text(GameConfig.width / 2, 718, `最高:${saveData.highScore} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
+      fontSize: '10px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 722, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
-      fontSize: '11px',
-      color: '#ff66ff'
-    }).setOrigin(0.5);
-
-    this.add.text(GameConfig.width / 2, 735, `总药片: ${saveData.totalPills} | 游戏: ${saveData.gamesPlayed}`, {
-      fontSize: '10px',
-      color: '#00ff88'
-    }).setOrigin(0.5);
-
-    this.add.text(GameConfig.width / 2, 747, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
-      fontSize: '10px',
+    this.add.text(GameConfig.width / 2, 733, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+      fontSize: '9px',
       color: '#666666'
     }).setOrigin(0.5);
 

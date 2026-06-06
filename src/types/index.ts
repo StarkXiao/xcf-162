@@ -475,5 +475,44 @@ export interface SaveData {
   archive: ArchiveData;
   achievements: AchievementData;
   season: SeasonData;
+  club: ClubData;
+}
+
+export enum ClubUpgradeType {
+  DECORATION = 'decoration',
+  LIGHTING = 'lighting',
+  SOUND = 'sound'
+}
+
+export interface ClubUpgradeLevel {
+  level: number;
+  cost: number;
+  bonus: number;
+  description: string;
+}
+
+export interface ClubUpgrade {
+  type: ClubUpgradeType;
+  name: string;
+  icon: string;
+  description: string;
+  color: string;
+  currentLevel: number;
+  maxLevel: number;
+  levels: ClubUpgradeLevel[];
+}
+
+export interface ClubBuff {
+  scoreMultiplier: number;
+  pillSpawnMultiplier: number;
+  baseTimeBonus: number;
+  comboTimeoutBonus: number;
+  guardSpeedReduction: number;
+}
+
+export interface ClubData {
+  clubCoins: number;
+  totalClubCoinsEarned: number;
+  upgrades: Record<ClubUpgradeType, number>;
 }
 

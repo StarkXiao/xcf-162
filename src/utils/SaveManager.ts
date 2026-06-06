@@ -1,4 +1,4 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType } from '../types';
 import { GameConfig } from '../config/GameConfig';
 import { getCurrentSeason, pickWeeklyTasks, SeasonCumulativeTasks } from '../config/SeasonConfig';
 
@@ -105,6 +105,18 @@ export class SaveManager {
     };
   }
 
+  private getDefaultClubData(): ClubData {
+    return {
+      clubCoins: 0,
+      totalClubCoinsEarned: 0,
+      upgrades: {
+        [ClubUpgradeType.DECORATION]: 0,
+        [ClubUpgradeType.LIGHTING]: 0,
+        [ClubUpgradeType.SOUND]: 0
+      }
+    };
+  }
+
   private getNextWeeklyReset(): number {
     const now = new Date();
     const nextMonday = new Date(now);
@@ -143,7 +155,8 @@ export class SaveManager {
       newlyUnlocked: []
     },
     achievements: this.defaultAchievementData,
-    season: this.getDefaultSeasonData()
+    season: this.getDefaultSeasonData(),
+    club: this.getDefaultClubData()
   };
 
   private constructor() {
