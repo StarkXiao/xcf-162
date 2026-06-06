@@ -7,6 +7,8 @@ import { TrainingScene } from './scenes/TrainingScene';
 import { JumpTrainingScene } from './scenes/JumpTrainingScene';
 import { PillTrainingScene } from './scenes/PillTrainingScene';
 import { GuardTrainingScene } from './scenes/GuardTrainingScene';
+import { EndlessScene } from './scenes/EndlessScene';
+import { EndlessGameOverScene } from './scenes/EndlessGameOverScene';
 import { GameConfig } from './config/GameConfig';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -28,7 +30,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: GameConfig.width,
     height: GameConfig.height
   },
-  scene: [BootScene, MenuScene, GameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene]
+  scene: [BootScene, MenuScene, GameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene, EndlessScene, EndlessGameOverScene]
 };
 
 new Phaser.Game(config);

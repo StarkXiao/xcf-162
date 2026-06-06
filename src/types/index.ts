@@ -21,6 +21,21 @@ export interface SaveData {
   maxNoDamageFloors: number;
   totalCombos: number;
   trainingScores: TrainingScores;
+  endlessLeaderboard: EndlessLeaderboardEntry[];
+  endlessBestScore: number;
+  endlessBestFloor: number;
+  endlessGamesPlayed: number;
+}
+
+export interface EndlessLeaderboardEntry {
+  score: number;
+  floor: number;
+  pills: number;
+  maxCombo: number;
+  multiplier: number;
+  timeRemaining: number;
+  date: string;
+  rank: number;
 }
 
 export interface TrainingScores {

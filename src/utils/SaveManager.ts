@@ -1,4 +1,5 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry } from '../types';
+import { GameConfig } from '../config/GameConfig';
 
 export class SaveManager {
   private static instance: SaveManager;
@@ -37,7 +38,11 @@ export class SaveManager {
     maxCombo: 0,
     maxNoDamageFloors: 0,
     totalCombos: 0,
-    trainingScores: this.defaultTrainingScores
+    trainingScores: this.defaultTrainingScores,
+    endlessLeaderboard: [],
+    endlessBestScore: 0,
+    endlessBestFloor: 0,
+    endlessGamesPlayed: 0
   };
 
   private constructor() {
@@ -248,6 +253,53 @@ export class SaveManager {
         guardTraining: updated
       }
     });
+  }
+
+  getEndlessLeaderboard(): EndlessLeaderboardEntry[] {
+    const data = this.getSaveData();
+    return data.endlessLeaderboard || [];
+  }
+
+  addEndlessScore(entry: Omit<EndlessLeaderboardEntry, 'rank'>): { isNewRecord: boolean; rank: number; leaderboard: EndlessLeaderboardEntry[] } {
+    const data = this.getSaveData();
+    const leaderboard = [...(data.endlessLeaderboard || [])];
+
+    const newEntry: EndlessLeaderboardEntry = {
+      ...entry,
+      rank: 0
+    };
+
+    leaderboard.push(newEntry);
+    leaderboard.sort((a, b) => b.score - a.score);
+
+    const ranked = leaderboard.slice(0, GameConfig.endlessLeaderboardMaxEntries).map((e, i) => ({
+      ...e,
+      rank: i + 1
+    }));
+
+    const rank = ranked.findIndex(e => e.date === newEntry.date && e.score === newEntry.score) + 1;
+    const isNewRecord = rank === 1 || newEntry.score > (data.endlessBestScore || 0);
+
+    this.saveGameData({
+      endlessLeaderboard: ranked,
+      endlessBestScore: Math.max(data.endlessBestScore || 0, newEntry.score),
+      endlessBestFloor: Math.max(data.endlessBestFloor || 0, newEntry.floor),
+      endlessGamesPlayed: (data.endlessGamesPlayed || 0) + 1
+    });
+
+    return { isNewRecord, rank, leaderboard: ranked };
+  }
+
+  getEndlessBestScore(): number {
+    return this.getSaveData().endlessBestScore || 0;
+  }
+
+  getEndlessBestFloor(): number {
+    return this.getSaveData().endlessBestFloor || 0;
+  }
+
+  getEndlessGamesPlayed(): number {
+    return this.getSaveData().endlessGamesPlayed || 0;
   }
 }
 

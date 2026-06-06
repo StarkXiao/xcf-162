@@ -26,6 +26,33 @@ export class GameConfig {
 
   static readonly noDamageFloorBaseBonus: number = 200;
   static readonly noDamageFloorBonusPerFloor: number = 100;
+
+  static readonly endlessBaseTime: number = 90000;
+  static readonly endlessTimeBonusPerFloor: number = 3000;
+  static readonly endlessMaxFloors: number = 999;
+  static readonly endlessBaseScoreRate: number = 15;
+  static readonly endlessLeaderboardMaxEntries: number = 10;
+
+  static readonly endlessFloorMultipliers: { floor: number; multiplier: number }[] = [
+    { floor: 1, multiplier: 1.0 },
+    { floor: 5, multiplier: 1.2 },
+    { floor: 10, multiplier: 1.5 },
+    { floor: 20, multiplier: 2.0 },
+    { floor: 30, multiplier: 2.5 },
+    { floor: 50, multiplier: 3.5 },
+    { floor: 75, multiplier: 5.0 },
+    { floor: 100, multiplier: 7.5 },
+    { floor: 150, multiplier: 10.0 }
+  ];
+
+  static readonly endlessDifficultyRamp: { floor: number; guardSpawnMul: number; guardSpeedMul: number; pillSpawnMul: number }[] = [
+    { floor: 1, guardSpawnMul: 0.8, guardSpeedMul: 0.8, pillSpawnMul: 1.2 },
+    { floor: 10, guardSpawnMul: 1.0, guardSpeedMul: 1.0, pillSpawnMul: 1.1 },
+    { floor: 25, guardSpawnMul: 1.3, guardSpeedMul: 1.2, pillSpawnMul: 1.0 },
+    { floor: 50, guardSpawnMul: 1.6, guardSpeedMul: 1.4, pillSpawnMul: 0.9 },
+    { floor: 75, guardSpawnMul: 2.0, guardSpeedMul: 1.6, pillSpawnMul: 0.8 },
+    { floor: 100, guardSpawnMul: 2.5, guardSpeedMul: 1.8, pillSpawnMul: 0.7 }
+  ];
 }
 
 export enum PillType {
