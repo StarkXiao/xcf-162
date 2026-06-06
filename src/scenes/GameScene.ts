@@ -7,6 +7,7 @@ import { HUD } from '../ui/HUD';
 import { AudioManager } from '../audio/AudioManager';
 import { TimeManager } from '../utils/TimeManager';
 import { FloorEventManager } from '../utils/FloorEventManager';
+import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
@@ -34,6 +35,7 @@ export class GameScene extends Phaser.Scene {
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
   private timeManager!: TimeManager;
   private floorEventManager!: FloorEventManager;
+  private platformTrapManager!: PlatformTrapManager;
   private darkOverlay!: Phaser.GameObjects.Graphics;
   private previousCycleCount: number = 0;
   private previousEventsTriggered: number = 0;
@@ -108,6 +110,7 @@ export class GameScene extends Phaser.Scene {
 
     this.timeManager = new TimeManager(this, initialTime);
     this.floorEventManager = new FloorEventManager(this);
+    this.platformTrapManager = new PlatformTrapManager(this, this.cameras.main);
 
     this.hud = new HUD(this);
     this.hud.updateScore(this.score);
@@ -363,10 +366,12 @@ export class GameScene extends Phaser.Scene {
         positions.push(x);
 
         const scale = Phaser.Math.FloatBetween(0.8, 1.3);
-        const platform = platformGroup.create(x + (GameConfig.platformWidth * scale) / 2, y, 'platform');
+        const platform = platformGroup.create(x + (GameConfig.platformWidth * scale) / 2, y, 'platform') as Phaser.Physics.Arcade.Sprite;
         platform.setDisplaySize(GameConfig.platformWidth * scale, GameConfig.platformHeight);
         platform.refreshBody();
         platform.setData('floor', floor);
+
+        this.platformTrapManager?.assignTrapToPlatform(platform, floor);
       }
 
       this.platforms.push(platformGroup);
@@ -375,10 +380,24 @@ export class GameScene extends Phaser.Scene {
 
   private setupCollisions(): void {
     this.platforms.forEach(platformGroup => {
-      this.physics.add.collider(this.player, platformGroup, this.onPlayerLand, undefined, this);
+      this.physics.add.collider(
+        this.player,
+        platformGroup,
+        this.onPlayerLand,
+        this.checkPlatformCollision,
+        this
+      );
     });
 
     this.physics.add.overlap(this.player, this.pillManager.getPills(), this.onPillCollect, undefined, this);
+  }
+
+  private checkPlatformCollision(
+    _player: unknown,
+    platform: unknown
+  ): boolean {
+    const platSprite = platform as Phaser.Physics.Arcade.Sprite;
+    return this.platformTrapManager?.isPlatformCollidable(platSprite) ?? true;
   }
 
   private setupTimers(): void {
@@ -563,9 +582,19 @@ export class GameScene extends Phaser.Scene {
       detectRange
     );
     this.guards.push(guard);
+    guard.setPlatformTrapManager(this.platformTrapManager);
 
     this.platforms.forEach(platformGroup => {
-      this.physics.add.collider(guard, platformGroup);
+      this.physics.add.collider(
+        guard,
+        platformGroup,
+        undefined,
+        (_guard, platform) => {
+          const platSprite = platform as Phaser.Physics.Arcade.Sprite;
+          return this.platformTrapManager?.isPlatformCollidable(platSprite) ?? true;
+        },
+        this
+      );
     });
 
     this.physics.add.overlap(this.player, guard, this.onGuardCollision, undefined, this);
@@ -583,7 +612,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onPlayerLand(_player: unknown, platform: unknown): void {
-    const floor = (platform as Phaser.GameObjects.GameObject).getData('floor') as number;
+    const platformSprite = platform as Phaser.Physics.Arcade.Sprite;
+    this.platformTrapManager?.onPlayerLand(platformSprite, this.player);
+
+    const vel = this.platformTrapManager?.getPlatformVelocity(platformSprite);
+    if (vel && (vel.vx !== 0 || vel.vy !== 0)) {
+      this.player.x += vel.vx * 0.016;
+    }
+
+    const floor = platformSprite.getData('floor') as number;
     if (floor > this.currentFloor) {
       this.currentFloor = floor;
       this.hud.updateFloor(this.currentFloor);
@@ -809,6 +846,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.player.update(this.keys, delta);
+
+    this.platformTrapManager?.update(delta);
 
     const eventGuardSpeedMultiplier = this.floorEventManager?.getEventEffect?.('guardSpeed') || 1;
     const eventDetectionMultiplier = this.floorEventManager?.getEventEffect?.('guardDetection') || 1;

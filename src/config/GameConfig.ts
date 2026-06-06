@@ -1,4 +1,4 @@
-import { TimeOfDay, TimeOfDayConfig, FloorEventType } from '../types';
+import { TimeOfDay, TimeOfDayConfig, FloorEventType, PlatformTrapType, PlatformTrapConfig } from '../types';
 
 export enum GuardChaseState {
   PATROL = 'patrol',
@@ -71,6 +71,8 @@ export class GameConfig {
   static readonly survivalScoreRate: number = 10;
   static readonly maxFloors: number = 20;
   static readonly eventTriggerFloorInterval: number = 3;
+  static readonly trapStartFloor: number = 2;
+  static readonly trapChancePerPlatform: number = 0.35;
 
   static readonly comboBaseScore: number = 50;
   static readonly comboMultiplierPerCombo: number = 25;
@@ -269,4 +271,24 @@ export const TimeOfDayOrder: TimeOfDay[] = [
   TimeOfDay.NIGHT,
   TimeOfDay.MIDNIGHT
 ];
+
+export const PlatformTrapConfigs: Record<PlatformTrapType, PlatformTrapConfig> = {
+  [PlatformTrapType.COLLAPSIBLE]: {
+    type: PlatformTrapType.COLLAPSIBLE,
+    collapseDelayMs: 800,
+    respawnDelayMs: 4000
+  },
+  [PlatformTrapType.MOVING]: {
+    type: PlatformTrapType.MOVING,
+    moveRangeX: 60,
+    moveRangeY: 0,
+    moveSpeed: 0.003
+  },
+  [PlatformTrapType.TEMPORARY]: {
+    type: PlatformTrapType.TEMPORARY,
+    onDurationMs: 2500,
+    offDurationMs: 2000,
+    startPhase: 0
+  }
+};
 

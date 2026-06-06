@@ -6,6 +6,7 @@ import { PillManager } from '../items/PillManager';
 import { EndlessHUD } from '../ui/EndlessHUD';
 import { AudioManager } from '../audio/AudioManager';
 import { SaveManager } from '../utils/SaveManager';
+import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
 
@@ -41,6 +42,7 @@ export class EndlessScene extends Phaser.Scene {
   private survivalStartTime: number = 0;
   private currentChaseState: GuardChaseState = GuardChaseState.PATROL;
   private chaseStateCheckTimer!: Phaser.Time.TimerEvent;
+  private platformTrapManager!: PlatformTrapManager;
 
   constructor() {
     super('EndlessScene');
@@ -86,6 +88,7 @@ export class EndlessScene extends Phaser.Scene {
 
     this.player = new Player(this, startX, startY);
     this.pillManager = new PillManager(this);
+    this.platformTrapManager = new PlatformTrapManager(this, this.cameras.main);
 
     this.hud = new EndlessHUD(this);
     this.hud.updateScore(this.getFinalScore());
@@ -149,18 +152,38 @@ export class EndlessScene extends Phaser.Scene {
       positions.push(x);
 
       const scale = Phaser.Math.FloatBetween(0.8, 1.3);
-      const platform = platformGroup.create(x + (GameConfig.platformWidth * scale) / 2, y, 'platform');
+      const platform = platformGroup.create(x + (GameConfig.platformWidth * scale) / 2, y, 'platform') as Phaser.Physics.Arcade.Sprite;
       platform.setDisplaySize(GameConfig.platformWidth * scale, GameConfig.platformHeight);
       platform.refreshBody();
       platform.setData('floor', floor);
+
+      this.platformTrapManager?.assignTrapToPlatform(platform, floor);
     }
 
     this.platforms.push(platformGroup);
 
     if (this.player) {
-      this.physics.add.collider(this.player, platformGroup, this.onPlayerLand, undefined, this);
+      this.physics.add.collider(
+        this.player,
+        platformGroup,
+        this.onPlayerLand,
+        (_player, platform) => {
+          const platSprite = platform as Phaser.Physics.Arcade.Sprite;
+          return this.platformTrapManager?.isPlatformCollidable(platSprite) ?? true;
+        },
+        this
+      );
       this.guards.forEach(guard => {
-        this.physics.add.collider(guard, platformGroup);
+        this.physics.add.collider(
+          guard,
+          platformGroup,
+          undefined,
+          (_guard, platform) => {
+            const platSprite = platform as Phaser.Physics.Arcade.Sprite;
+            return this.platformTrapManager?.isPlatformCollidable(platSprite) ?? true;
+          },
+          this
+        );
       });
     }
   }
@@ -175,7 +198,16 @@ export class EndlessScene extends Phaser.Scene {
 
   private setupCollisions(): void {
     this.platforms.forEach(platformGroup => {
-      this.physics.add.collider(this.player, platformGroup, this.onPlayerLand, undefined, this);
+      this.physics.add.collider(
+        this.player,
+        platformGroup,
+        this.onPlayerLand,
+        (_player, platform) => {
+          const platSprite = platform as Phaser.Physics.Arcade.Sprite;
+          return this.platformTrapManager?.isPlatformCollidable(platSprite) ?? true;
+        },
+        this
+      );
     });
 
     this.physics.add.overlap(this.player, this.pillManager.getPills(), this.onPillCollect, undefined, this);
@@ -344,10 +376,20 @@ export class EndlessScene extends Phaser.Scene {
       Math.floor(150 * diffConfig.guardSpeedMul)
     );
     guard.setChaseState(this.currentChaseState);
+    guard.setPlatformTrapManager(this.platformTrapManager);
     this.guards.push(guard);
 
     this.platforms.forEach(platformGroup => {
-      this.physics.add.collider(guard, platformGroup);
+      this.physics.add.collider(
+        guard,
+        platformGroup,
+        undefined,
+        (_guard, platform) => {
+          const platSprite = platform as Phaser.Physics.Arcade.Sprite;
+          return this.platformTrapManager?.isPlatformCollidable(platSprite) ?? true;
+        },
+        this
+      );
     });
 
     this.physics.add.overlap(this.player, guard, this.onGuardCollision, undefined, this);
@@ -364,7 +406,15 @@ export class EndlessScene extends Phaser.Scene {
   }
 
   private onPlayerLand(_player: unknown, platform: unknown): void {
-    const floor = (platform as Phaser.GameObjects.GameObject).getData('floor') as number;
+    const platformSprite = platform as Phaser.Physics.Arcade.Sprite;
+    this.platformTrapManager?.onPlayerLand(platformSprite, this.player);
+
+    const vel = this.platformTrapManager?.getPlatformVelocity(platformSprite);
+    if (vel && (vel.vx !== 0 || vel.vy !== 0)) {
+      this.player.x += vel.vx * 0.016;
+    }
+
+    const floor = platformSprite.getData('floor') as number;
     if (floor > this.currentFloor) {
       const floorsGained = floor - this.currentFloor;
       this.currentFloor = floor;
@@ -557,6 +607,8 @@ export class EndlessScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     this.player.update(this.keys, delta);
+
+    this.platformTrapManager?.update(delta);
 
     const diffConfig = this.getDifficultyConfig();
 

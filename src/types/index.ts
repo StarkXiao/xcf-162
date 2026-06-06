@@ -77,6 +77,36 @@ export interface Platform {
   width: number;
 }
 
+export enum PlatformTrapType {
+  COLLAPSIBLE = 'collapsible',
+  MOVING = 'moving',
+  TEMPORARY = 'temporary'
+}
+
+export interface PlatformTrapConfig {
+  type: PlatformTrapType;
+  collapseDelayMs?: number;
+  respawnDelayMs?: number;
+  moveRangeX?: number;
+  moveRangeY?: number;
+  moveSpeed?: number;
+  onDurationMs?: number;
+  offDurationMs?: number;
+  startPhase?: number;
+}
+
+export interface PlatformTrapState {
+  type: PlatformTrapType;
+  isActive: boolean;
+  isCollapsing: boolean;
+  collapseTimer: number;
+  originalX: number;
+  originalY: number;
+  movePhase: number;
+  moveDirection: number;
+  togglePhase: number;
+}
+
 export enum TimeOfDay {
   DAWN = 'dawn',
   DAY = 'day',

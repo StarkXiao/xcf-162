@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { GameConfig, GuardChaseState, GuardChaseStateConfig } from '../config/GameConfig';
 import { Player } from '../characters/Player';
+import { PlatformTrapManager } from '../utils/PlatformTrapManager';
+import { PlatformTrapType } from '../types';
 
 export class Guard extends Phaser.Physics.Arcade.Sprite {
   private targetPlayer: Player;
@@ -15,6 +17,8 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
   private chaseState: GuardChaseState = GuardChaseState.PATROL;
   private surroundDirection: number = 0;
   private jumpCooldown: number = 0;
+  private platformTrapManager: PlatformTrapManager | null = null;
+  private currentStandingPlatform: Phaser.Physics.Arcade.Sprite | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -57,6 +61,10 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  setPlatformTrapManager(manager: PlatformTrapManager): void {
+    this.platformTrapManager = manager;
+  }
+
   private createAlertIcon(): void {
     this.alertIcon = this.scene.add.text(0, 0, '!', {
       fontSize: '24px',
@@ -76,6 +84,8 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
       this.jumpCooldown -= _delta;
     }
 
+    this.checkCurrentPlatformDanger();
+
     if (distance < effectiveDetectionRange) {
       this.isAlerted = true;
       this.lastSeenX = this.targetPlayer.x;
@@ -93,9 +103,13 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
+    const needsEvacuate = this.shouldEvacuateCurrentPlatform();
+
     if (this.isAlerted) {
       this.setData('lastSeenTime', this.scene.time.now);
-      if (stateConfig.jumpChaseEnabled) {
+      if (needsEvacuate) {
+        this.evacuatePlatform(effectiveSpeed);
+      } else if (stateConfig.jumpChaseEnabled) {
         this.jumpChasePlayer(effectiveSpeed);
       } else if (stateConfig.surroundEnabled) {
         this.surroundPlayer(effectiveSpeed);
@@ -103,14 +117,70 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
         this.chasePlayer(effectiveSpeed);
       }
     } else {
-      this.patrol(effectiveSpeed * 0.6);
+      if (needsEvacuate) {
+        this.evacuatePlatform(effectiveSpeed * 1.2);
+      } else {
+        this.patrol(effectiveSpeed * 0.6);
+      }
     }
 
+    this.applyMovingPlatformCarry();
     this.updateAlertPosition();
     this.updateFacing();
 
     if (this.y > this.targetPlayer.y + GameConfig.height + 200) {
       this.destroy();
+    }
+  }
+
+  private checkCurrentPlatformDanger(): void {
+    if (!this.platformTrapManager || !this.body?.blocked.down) {
+      this.currentStandingPlatform = null;
+      return;
+    }
+
+    const checkY = this.y + this.height / 2 + 5;
+    const nearby = this.platformTrapManager.getActivePlatformsNear(this.x, checkY, 80);
+    this.currentStandingPlatform = nearby.length > 0 ? nearby[0] : null;
+  }
+
+  private shouldEvacuateCurrentPlatform(): boolean {
+    if (!this.platformTrapManager || !this.currentStandingPlatform) return false;
+    return this.platformTrapManager.shouldGuardAvoid(this.currentStandingPlatform);
+  }
+
+  private evacuatePlatform(speed: number): void {
+    const platform = this.currentStandingPlatform;
+    if (!platform) {
+      this.patrol(speed);
+      return;
+    }
+
+    const trapType = this.platformTrapManager?.getPlatformTrapType(platform);
+    const toLeft = this.x > platform.x;
+    const dir = toLeft ? -1 : 1;
+
+    this.setVelocityX(dir * speed * 1.3);
+
+    const distToEdge = Math.abs(this.x - platform.x);
+    if (this.body?.blocked.down && distToEdge < 30 && this.jumpCooldown <= 0) {
+      this.setVelocityY(GameConfig.playerJumpForce * 0.9);
+      this.jumpCooldown = 500;
+    }
+
+    if (trapType === PlatformTrapType.COLLAPSIBLE) {
+      this.alertIcon.setText('⚠️');
+      this.alertIcon.setVisible(true);
+      this.alertIcon.setColor('#ffff00');
+    }
+  }
+
+  private applyMovingPlatformCarry(): void {
+    if (!this.platformTrapManager || !this.currentStandingPlatform || !this.body?.blocked.down) return;
+    const vel = this.platformTrapManager.getPlatformVelocity(this.currentStandingPlatform);
+    if (vel.vx !== 0 || vel.vy !== 0) {
+      this.x += vel.vx * 0.016;
+      this.y += vel.vy * 0.016;
     }
   }
 

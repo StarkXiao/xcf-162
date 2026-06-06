@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-type SoundType = 'jump' | 'pill' | 'guard' | 'gameover' | 'hover' | 'select' | 'shield' | 'alert_surround' | 'alert_jump';
+type SoundType = 'jump' | 'pill' | 'guard' | 'gameover' | 'hover' | 'select' | 'shield' | 'alert_surround' | 'alert_jump' | 'trap_collapse' | 'trap_respawn' | 'trap_move' | 'trap_toggle' | 'trap_land';
 
 export class AudioManager {
   private static instance: AudioManager;
@@ -32,6 +32,11 @@ export class AudioManager {
     this.createTone('shield', 500, 800, 0.2, 'sine', audioContext);
     this.createAlertTone('alert_surround', 440, 660, 0.6, 'square', audioContext);
     this.createAlertTone('alert_jump', 220, 880, 0.8, 'sawtooth', audioContext);
+    this.createTone('trap_collapse', 300, 80, 0.35, 'sawtooth', audioContext);
+    this.createTone('trap_respawn', 200, 500, 0.2, 'triangle', audioContext);
+    this.createTone('trap_move', 350, 450, 0.08, 'sine', audioContext);
+    this.createTone('trap_toggle', 600, 300, 0.15, 'square', audioContext);
+    this.createTone('trap_land', 500, 350, 0.12, 'triangle', audioContext);
 
     this.createMusic(audioContext);
   }
