@@ -86,9 +86,7 @@ export class PillManager {
       player.applyPillEffect(type);
 
       if (type === PillType.SCORE) {
-        const gameScene = this.scene.scene.get('GameScene');
-        const events = gameScene.events;
-        events.emit('scoreBonus', effect.value);
+        this.scene.events.emit('scoreBonus', effect.value);
       }
     }
 

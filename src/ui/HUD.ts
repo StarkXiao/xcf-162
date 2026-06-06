@@ -45,6 +45,7 @@ export class HUD {
     this.audioManager = AudioManager.getInstance();
     this.createUI();
     this.setupEvents();
+    this.updateAddictionLevel(0);
   }
 
   private createUI(): void {
