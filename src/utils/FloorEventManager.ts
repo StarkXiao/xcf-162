@@ -117,7 +117,7 @@ export class FloorEventManager {
     return this.currentEvent !== null;
   }
 
-  getEventEffect(key: 'guardSpeed' | 'guardSpawn' | 'pillSpawn' | 'score' | 'pillRare'): number {
+  getEventEffect(key: 'guardSpeed' | 'guardSpawn' | 'guardDetection' | 'pillSpawn' | 'score' | 'pillRare'): number {
     if (!this.currentEvent) return 1;
 
     switch (this.currentEvent.type) {
@@ -131,6 +131,7 @@ export class FloorEventManager {
       case FloorEventType.SECURITY_ALERT:
         if (key === 'guardSpeed') return 1.5;
         if (key === 'guardSpawn') return 1.5;
+        if (key === 'guardDetection') return 1.6;
         return 1;
       case FloorEventType.BONUS_FLOOR:
         if (key === 'score') return 2;

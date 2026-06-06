@@ -19,6 +19,7 @@ export class HUD {
   private scorePopup: Phaser.GameObjects.Text[] = [];
   private timeText!: Phaser.GameObjects.Text;
   private timeIcon!: Phaser.GameObjects.Text;
+  private timeDescText!: Phaser.GameObjects.Text;
   private timeBarBg!: Phaser.GameObjects.Graphics;
   private timeBar!: Phaser.GameObjects.Graphics;
   private eventText!: Phaser.GameObjects.Text;
@@ -66,22 +67,27 @@ export class HUD {
       fontSize: '18px'
     }).setScrollFactor(0).setDepth(101);
 
-    this.timeText = this.scene.add.text(45, 50 + scrollY, '黎明', {
-      fontSize: '14px',
+    this.timeText = this.scene.add.text(45, 48 + scrollY, '黎明', {
+      fontSize: '13px',
       color: '#ffaa00',
       fontStyle: 'bold'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.timeDescText = this.scene.add.text(45, 63 + scrollY, '', {
+      fontSize: '10px',
+      color: '#cc9966'
     }).setScrollFactor(0).setDepth(101);
 
     this.timeBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.timeBar = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
 
-    this.eventText = this.scene.add.text(GameConfig.width / 2, 95 + scrollY, '', {
+    this.eventText = this.scene.add.text(GameConfig.width / 2, 105 + scrollY, '', {
       fontSize: '18px',
       color: '#ff6600',
       fontStyle: 'bold'
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
 
-    this.eventDescription = this.scene.add.text(GameConfig.width / 2, 118 + scrollY, '', {
+    this.eventDescription = this.scene.add.text(GameConfig.width / 2, 128 + scrollY, '', {
       fontSize: '12px',
       color: '#ffcc88'
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
@@ -89,7 +95,7 @@ export class HUD {
     this.eventTimerBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.eventTimerBar = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
 
-    this.effectText = this.scene.add.text(GameConfig.width / 2, 140 + scrollY, '', {
+    this.effectText = this.scene.add.text(GameConfig.width / 2, 155 + scrollY, '', {
       fontSize: '16px',
       color: '#ffffff',
       fontStyle: 'bold'
@@ -162,12 +168,13 @@ export class HUD {
     const config = TimeOfDayConfigs[time];
     this.timeIcon.setText(config.icon);
     this.timeText.setText(config.name);
+    this.timeDescText.setText(config.description);
 
     const scrollY = this.scene.cameras.main.scrollY;
-    const barX = 85;
+    const barX = 180;
     const barY = 57 + scrollY;
-    const barWidth = 80;
-    const barHeight = 6;
+    const barWidth = 70;
+    const barHeight = 5;
 
     this.timeBarBg.clear();
     this.timeBarBg.fillStyle(0x333333, 0.8);
@@ -209,7 +216,7 @@ export class HUD {
 
     const scrollY = this.scene.cameras.main.scrollY;
     const barX = GameConfig.width / 2 - 60;
-    const barY = 140 + scrollY;
+    const barY = 150 + scrollY;
     const barWidth = 120;
     const barHeight = 4;
 
@@ -242,7 +249,7 @@ export class HUD {
 
     this.effectIcon.clear();
     this.effectIcon.fillStyle(PillColors[type]);
-    this.effectIcon.fillCircle(GameConfig.width / 2 - 80, 150 + this.scene.cameras.main.scrollY, 10);
+    this.effectIcon.fillCircle(GameConfig.width / 2 - 80, 165 + this.scene.cameras.main.scrollY, 10);
 
     this.scene.tweens.add({
       targets: [this.effectText, this.effectIcon],

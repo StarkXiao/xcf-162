@@ -233,12 +233,16 @@ export class GameScene extends Phaser.Scene {
 
   private applyTimeOfDaySettings(): void {
     const timeConfig = this.timeManager.getConfig();
+    const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
 
     this.cameras.main.setBackgroundColor(timeConfig.bgColor);
     this.pillManager.setPillWeights(timeConfig.pillWeights);
 
     this.guards.forEach(guard => {
-      guard.setTimeMultipliers(timeConfig.guardSpeedMultiplier, timeConfig.guardDetectionRange);
+      guard.setTimeMultipliers(
+        timeConfig.guardSpeedMultiplier,
+        Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier)
+      );
     });
 
     this.updateDarkOverlay();
@@ -282,6 +286,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     const timeConfig = this.timeManager.getConfig();
+    const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
     const spawnY = this.cameraTargetY - 100;
     const spawnX = Phaser.Math.Between(60, GameConfig.width - 60);
     const guard = new Guard(
@@ -290,7 +295,7 @@ export class GameScene extends Phaser.Scene {
       spawnY,
       this.player,
       timeConfig.guardSpeedMultiplier,
-      timeConfig.guardDetectionRange
+      Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier)
     );
     this.guards.push(guard);
 
@@ -398,7 +403,12 @@ export class GameScene extends Phaser.Scene {
     this.player.update(this.keys, delta);
 
     const eventGuardSpeedMultiplier = this.floorEventManager.getEventEffect('guardSpeed');
+    const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
+    const timeConfig = this.timeManager.getConfig();
+    const effectiveDetectionRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier);
+
     this.guards.forEach(guard => {
+      guard.setTimeMultipliers(timeConfig.guardSpeedMultiplier, effectiveDetectionRange);
       guard.update(delta, this.player.guardSlowMultiplier, eventGuardSpeedMultiplier);
     });
 
@@ -413,7 +423,6 @@ export class GameScene extends Phaser.Scene {
       this.gameOver();
     }
 
-    const timeConfig = this.timeManager.getConfig();
     const baseLightAlpha = timeConfig.lightOpacity;
     this.neonLights.forEach((light, index) => {
       const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + baseLightAlpha;

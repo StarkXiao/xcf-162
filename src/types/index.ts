@@ -44,6 +44,7 @@ export enum FloorEventType {
 export interface TimeOfDayConfig {
   name: string;
   icon: string;
+  description: string;
   bgColor: number;
   lightOpacity: number;
   guardSpeedMultiplier: number;

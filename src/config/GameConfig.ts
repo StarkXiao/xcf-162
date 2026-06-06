@@ -46,6 +46,7 @@ export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
   [TimeOfDay.DAWN]: {
     name: '黎明',
     icon: '🌅',
+    description: '保安较弱，得分药片较多',
     bgColor: 0x1a1a2e,
     lightOpacity: 0.5,
     guardSpeedMultiplier: 0.8,
@@ -58,6 +59,7 @@ export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
   [TimeOfDay.DAY]: {
     name: '白天',
     icon: '☀️',
+    description: '难度适中，大量药片补给',
     bgColor: 0x2a2a4e,
     lightOpacity: 0.8,
     guardSpeedMultiplier: 1.0,
@@ -70,6 +72,7 @@ export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
   [TimeOfDay.DUSK]: {
     name: '黄昏',
     icon: '🌇',
+    description: '保安渐强，护盾药片增多',
     bgColor: 0x3a1a2e,
     lightOpacity: 0.6,
     guardSpeedMultiplier: 1.1,
@@ -82,6 +85,7 @@ export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
   [TimeOfDay.NIGHT]: {
     name: '夜晚',
     icon: '🌙',
+    description: '保安凶猛，护盾药片居多',
     bgColor: 0x0a0a1a,
     lightOpacity: 0.3,
     guardSpeedMultiplier: 1.3,
@@ -94,6 +98,7 @@ export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
   [TimeOfDay.MIDNIGHT]: {
     name: '深夜',
     icon: '🌑',
+    description: '极度危险！稀有护盾必备',
     bgColor: 0x050510,
     lightOpacity: 0.15,
     guardSpeedMultiplier: 1.5,
@@ -108,12 +113,12 @@ export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
 export const FloorEventConfigs: Record<FloorEventType, { name: string; description: string; duration: number }> = {
   [FloorEventType.GUARD_SURGE]: {
     name: '保安来袭',
-    description: '大量保安涌入！',
+    description: '保安数量×3，速度略增！',
     duration: 10000
   },
   [FloorEventType.PILL_RAIN]: {
     name: '药片雨',
-    description: '药片掉落频率翻倍！',
+    description: '药片掉落速度×2.5！',
     duration: 8000
   },
   [FloorEventType.LIGHTS_OUT]: {
@@ -123,12 +128,12 @@ export const FloorEventConfigs: Record<FloorEventType, { name: string; descripti
   },
   [FloorEventType.SECURITY_ALERT]: {
     name: '安全警报',
-    description: '保安速度和侦测范围提升！',
+    description: '保安速度×1.5，侦测×1.6，数量×1.5！',
     duration: 15000
   },
   [FloorEventType.BONUS_FLOOR]: {
     name: '奖励楼层',
-    description: '得分翻倍，稀有药片更多！',
+    description: '得分×2，稀有药片×2，药片更多！',
     duration: 10000
   }
 };
