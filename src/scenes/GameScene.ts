@@ -438,7 +438,7 @@ export class GameScene extends Phaser.Scene {
 
     this.timeManager.pause();
 
-    this.saveGameState();
+    const recordFlags = this.saveGameState();
 
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
@@ -450,27 +450,51 @@ export class GameScene extends Phaser.Scene {
         pills: this.pillCount,
         floor: this.currentFloor,
         maxCombo: this.maxComboInGame,
-        maxNoDamageFloors: this.maxNoDamageFloorsInGame
+        maxNoDamageFloors: this.maxNoDamageFloorsInGame,
+        isNewHighScore: recordFlags.isNewHighScore,
+        isNewMaxCombo: recordFlags.isNewMaxCombo,
+        isNewMaxNoDamage: recordFlags.isNewMaxNoDamage,
+        savedHighScore: recordFlags.savedHighScore
       });
     });
   }
 
-  private saveGameState(): void {
+  private saveGameState(): {
+    isNewHighScore: boolean;
+    isNewMaxCombo: boolean;
+    isNewMaxNoDamage: boolean;
+    savedHighScore: number;
+  } {
     const saveData = this.saveManager.getSaveData();
     const newCycles = this.timeManager.getCycleCount() - this.previousCycleCount;
     const newEvents = this.floorEventManager.getEventsTriggeredCount() - this.previousEventsTriggered;
 
+    const isNewHighScore = this.score > saveData.highScore;
+    const isNewMaxCombo = this.maxComboInGame > (saveData.maxCombo || 0);
+    const isNewMaxNoDamage = this.maxNoDamageFloorsInGame > (saveData.maxNoDamageFloors || 0);
+
+    const savedHighScore = Math.max(saveData.highScore, this.score);
+    const savedMaxCombo = Math.max(saveData.maxCombo || 0, this.maxComboInGame);
+    const savedMaxNoDamageFloors = Math.max(saveData.maxNoDamageFloors || 0, this.maxNoDamageFloorsInGame);
+
     this.saveManager.saveGameData({
-      highScore: Math.max(saveData.highScore, this.score),
+      highScore: savedHighScore,
       totalPills: saveData.totalPills + this.pillCount,
       gamesPlayed: saveData.gamesPlayed + 1,
       lastTimeOfDay: this.timeManager.getCurrentTimeOfDay(),
       totalDayCycles: saveData.totalDayCycles + Math.max(0, newCycles),
       eventsTriggered: saveData.eventsTriggered + Math.max(0, newEvents),
-      maxCombo: Math.max(saveData.maxCombo || 0, this.maxComboInGame),
-      maxNoDamageFloors: Math.max(saveData.maxNoDamageFloors || 0, this.maxNoDamageFloorsInGame),
+      maxCombo: savedMaxCombo,
+      maxNoDamageFloors: savedMaxNoDamageFloors,
       totalCombos: (saveData.totalCombos || 0) + this.maxComboInGame
     });
+
+    return {
+      isNewHighScore,
+      isNewMaxCombo,
+      isNewMaxNoDamage,
+      savedHighScore
+    };
   }
 
   update(_time: number, delta: number): void {

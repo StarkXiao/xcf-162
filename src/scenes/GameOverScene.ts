@@ -1,10 +1,8 @@
 import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
-import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
 
 export class GameOverScene extends Phaser.Scene {
-  private saveManager!: SaveManager;
   private audioManager!: AudioManager;
   private finalScore: number = 0;
   private finalMaxCombo: number = 0;
@@ -12,31 +10,31 @@ export class GameOverScene extends Phaser.Scene {
   private isNewHighScore: boolean = false;
   private isNewMaxCombo: boolean = false;
   private isNewMaxNoDamage: boolean = false;
+  private savedHighScore: number = 0;
 
   constructor() {
     super('GameOverScene');
   }
 
-  init(data: { score: number; pills: number; floor: number; maxCombo?: number; maxNoDamageFloors?: number }): void {
+  init(data: {
+    score: number;
+    pills: number;
+    floor: number;
+    maxCombo?: number;
+    maxNoDamageFloors?: number;
+    isNewHighScore?: boolean;
+    isNewMaxCombo?: boolean;
+    isNewMaxNoDamage?: boolean;
+    savedHighScore?: number;
+  }): void {
+    this.audioManager = AudioManager.getInstance();
     this.finalScore = data.score;
     this.finalMaxCombo = data.maxCombo || 0;
     this.finalMaxNoDamageFloors = data.maxNoDamageFloors || 0;
-    this.saveManager = SaveManager.getInstance();
-    this.audioManager = AudioManager.getInstance();
-
-    const saveData = this.saveManager.getSaveData();
-    this.isNewHighScore = data.score > saveData.highScore;
-    this.isNewMaxCombo = this.finalMaxCombo > (saveData.maxCombo || 0);
-    this.isNewMaxNoDamage = this.finalMaxNoDamageFloors > (saveData.maxNoDamageFloors || 0);
-
-    this.saveManager.saveGameData({
-      highScore: Math.max(saveData.highScore, data.score),
-      totalPills: saveData.totalPills + data.pills,
-      gamesPlayed: saveData.gamesPlayed + 1,
-      maxCombo: Math.max(saveData.maxCombo || 0, this.finalMaxCombo),
-      maxNoDamageFloors: Math.max(saveData.maxNoDamageFloors || 0, this.finalMaxNoDamageFloors),
-      totalCombos: (saveData.totalCombos || 0) + this.finalMaxCombo
-    });
+    this.isNewHighScore = !!data.isNewHighScore;
+    this.isNewMaxCombo = !!data.isNewMaxCombo;
+    this.isNewMaxNoDamage = !!data.isNewMaxNoDamage;
+    this.savedHighScore = data.savedHighScore ?? data.score;
   }
 
   create(): void {
@@ -82,8 +80,7 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
     nextY += 55;
 
-    const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, nextY, `最高分: ${saveData.highScore}`, {
+    this.add.text(GameConfig.width / 2, nextY, `最高分: ${this.savedHighScore}`, {
       fontSize: '18px',
       color: '#ffcc00'
     }).setOrigin(0.5);
