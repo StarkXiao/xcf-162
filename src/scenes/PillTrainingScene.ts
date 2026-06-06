@@ -4,6 +4,8 @@ import { Player } from '../characters/Player';
 import { PillManager } from '../items/PillManager';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
+import { SeasonManager } from '../utils/SeasonManager';
+import { SeasonTaskType } from '../types';
 
 export class PillTrainingScene extends Phaser.Scene {
   private player!: Player;
@@ -21,6 +23,7 @@ export class PillTrainingScene extends Phaser.Scene {
   private hudTexts: Map<string, Phaser.GameObjects.Text> = new Map();
   private saveManager!: SaveManager;
   private audioManager!: AudioManager;
+  private seasonManager!: SeasonManager;
   private isEnded: boolean = false;
   private neonLights: Phaser.GameObjects.Image[] = [];
   private selectedPillType: PillType | null = null;
@@ -35,6 +38,8 @@ export class PillTrainingScene extends Phaser.Scene {
   create(): void {
     this.saveManager = SaveManager.getInstance();
     this.audioManager = AudioManager.getInstance();
+    this.seasonManager = SeasonManager.getInstance();
+    this.seasonManager.checkReset();
     this.pillsCollected = 0;
     this.pillsPerType = {};
     this.currentStreak = 0;
@@ -291,6 +296,8 @@ export class PillTrainingScene extends Phaser.Scene {
         if (!this.isEnded) {
           this.totalScore += 10;
           this.updateHUD();
+          this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, 10);
+          this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
         }
       },
       callbackScope: this,
@@ -333,6 +340,13 @@ export class PillTrainingScene extends Phaser.Scene {
     this.showPillEffect(pillType);
     this.audioManager.play('pill');
     this.updateHUD();
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.PILLS, 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, GameConfig.pillScore + this.currentStreak * 20);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, GameConfig.pillScore + this.currentStreak * 20);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.PILLS, this.pillsCollected);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.bestStreak);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
   }
 
   private showPillEffect(type: PillType): void {
@@ -413,6 +427,13 @@ export class PillTrainingScene extends Phaser.Scene {
       totalScore: this.totalScore,
       gamesPlayed: 1
     });
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GAMES_PLAYED, 1);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.PILLS, this.pillsCollected);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.bestStreak);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, this.totalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.totalScore);
 
     this.cameras.main.fade(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

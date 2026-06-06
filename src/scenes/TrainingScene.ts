@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
+import { SeasonManager } from '../utils/SeasonManager';
 
 export class TrainingScene extends Phaser.Scene {
   private saveManager!: SaveManager;
@@ -15,6 +16,9 @@ export class TrainingScene extends Phaser.Scene {
   create(): void {
     this.saveManager = SaveManager.getInstance();
     this.audioManager = AudioManager.getInstance();
+
+    const seasonManager = SeasonManager.getInstance();
+    seasonManager.checkReset();
 
     this.cameras.main.setBackgroundColor('#0a0a1a');
     this.createBackground();
@@ -41,7 +45,41 @@ export class TrainingScene extends Phaser.Scene {
 
     this.displayTrainingScores();
 
-    const backBtn = this.add.text(GameConfig.width / 2, 650, '← 返回主菜单', {
+    const hasNewSeason = seasonManager.hasNewlyCompletedTasks() || seasonManager.getClaimableCount() > 0;
+    const seasonLevelData = seasonManager.getLevelProgress();
+    const seasonBtnLabel = `🏅 赛季任务 Lv.${seasonLevelData.currentLevel}${hasNewSeason ? ' 🔔' : ''}`;
+
+    const seasonBtn = this.add.text(GameConfig.width / 2, 605, seasonBtnLabel, {
+      fontSize: '18px',
+      color: '#ffffff',
+      backgroundColor: '#00ccaa',
+      padding: { left: 24, right: 24, top: 6, bottom: 6 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    if (hasNewSeason) {
+      this.tweens.add({
+        targets: seasonBtn,
+        scale: { from: 1, to: 1.04 },
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    seasonBtn.on('pointerover', () => {
+      seasonBtn.setBackgroundColor('#00ddbb');
+      this.audioManager.play('hover');
+    });
+    seasonBtn.on('pointerout', () => {
+      seasonBtn.setBackgroundColor('#00ccaa');
+    });
+    seasonBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('SeasonScene');
+    });
+
+    const backBtn = this.add.text(GameConfig.width / 2, 670, '← 返回主菜单', {
       fontSize: '22px',
       color: '#aaaaaa'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });

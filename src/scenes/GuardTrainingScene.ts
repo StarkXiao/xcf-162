@@ -5,6 +5,8 @@ import { Guard } from '../enemies/Guard';
 import { PillManager } from '../items/PillManager';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
+import { SeasonManager } from '../utils/SeasonManager';
+import { SeasonTaskType } from '../types';
 
 export class GuardTrainingScene extends Phaser.Scene {
   private player!: Player;
@@ -24,6 +26,7 @@ export class GuardTrainingScene extends Phaser.Scene {
   private hudTexts: Map<string, Phaser.GameObjects.Text> = new Map();
   private saveManager!: SaveManager;
   private audioManager!: AudioManager;
+  private seasonManager!: SeasonManager;
   private isEnded: boolean = false;
   private neonLights: Phaser.GameObjects.Image[] = [];
   private difficultyLevel: number = 1;
@@ -40,6 +43,8 @@ export class GuardTrainingScene extends Phaser.Scene {
   create(): void {
     this.saveManager = SaveManager.getInstance();
     this.audioManager = AudioManager.getInstance();
+    this.seasonManager = SeasonManager.getInstance();
+    this.seasonManager.checkReset();
     this.guardsAvoided = 0;
     this.guardsTricked = 0;
     this.survivalTime = 0;
@@ -240,8 +245,11 @@ export class GuardTrainingScene extends Phaser.Scene {
       delay: 1000,
       callback: () => {
         if (!this.isEnded) {
-          this.totalScore += 15 * this.difficultyLevel;
+          const gain = 15 * this.difficultyLevel;
+          this.totalScore += gain;
           this.updateHUD();
+          this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, gain);
+          this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
         }
       },
       callbackScope: this,
@@ -350,10 +358,17 @@ export class GuardTrainingScene extends Phaser.Scene {
     this.audioManager.play('pill');
     this.totalScore += 50;
     this.updateHUD();
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.PILLS, 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, 50);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, 50);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
   }
 
   private onGuardCollision(): void {
     if (this.isEnded) return;
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GUARD_HITS, 1);
 
     if (this.player.hasShield) {
       this.player.hasShield = false;
@@ -396,6 +411,8 @@ export class GuardTrainingScene extends Phaser.Scene {
             this.lastTrickTime = this.time.now;
             this.showTrickEffect();
             this.updateHUD();
+            this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, 100);
+            this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
           }
         }
       }
@@ -405,6 +422,8 @@ export class GuardTrainingScene extends Phaser.Scene {
         this.totalScore += 30;
         this.guardPositions.set(guard, { x: guard.x, y: guard.y, time: this.time.now });
         this.updateHUD();
+        this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, 30);
+        this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
       } else {
         this.guardPositions.set(guard, { x: guard.x, y: guard.y, time: prev.time });
       }
@@ -460,6 +479,12 @@ export class GuardTrainingScene extends Phaser.Scene {
       totalScore: this.totalScore,
       gamesPlayed: 1
     });
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GAMES_PLAYED, 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GUARD_HITS, 0);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, this.totalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, this.totalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.totalScore);
 
     this.cameras.main.fade(500, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

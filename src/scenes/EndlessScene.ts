@@ -9,6 +9,8 @@ import { SaveManager } from '../utils/SaveManager';
 import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
+import { SeasonManager } from '../utils/SeasonManager';
+import { SeasonTaskType } from '../types';
 
 export class EndlessScene extends Phaser.Scene {
   private player!: Player;
@@ -29,6 +31,7 @@ export class EndlessScene extends Phaser.Scene {
   private audioManager!: AudioManager;
   private saveManager!: SaveManager;
   private achievementManager!: AchievementManager;
+  private seasonManager!: SeasonManager;
   private isGameOver: boolean = false;
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
   private currentCombo: number = 0;
@@ -52,6 +55,8 @@ export class EndlessScene extends Phaser.Scene {
     this.audioManager = AudioManager.getInstance();
     this.saveManager = SaveManager.getInstance();
     this.achievementManager = AchievementManager.getInstance();
+    this.seasonManager = SeasonManager.getInstance();
+    this.seasonManager.checkReset();
     this.achievementManager.resetInGameStats();
     this.isGameOver = false;
     this.rawScore = 0;
@@ -222,6 +227,8 @@ export class EndlessScene extends Phaser.Scene {
       callback: () => {
         this.rawScore += GameConfig.endlessBaseScoreRate;
         this.hud.updateScore(this.getFinalScore());
+        this.seasonManager.updateTaskProgress(SeasonTaskType.ENDLESS_SCORE, GameConfig.endlessBaseScoreRate);
+        this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_SCORE, this.getFinalScore());
       },
       callbackScope: this,
       loop: true
@@ -439,6 +446,13 @@ export class EndlessScene extends Phaser.Scene {
 
       this.achievementManager.updateInGameStat('floor', this.currentFloor, true);
       this.achievementManager.updateInGameStat('score', this.getFinalScore(), true);
+
+      this.seasonManager.updateTaskProgress(SeasonTaskType.FLOOR, floorsGained);
+      this.seasonManager.updateTaskProgress(SeasonTaskType.ENDLESS_FLOOR, floorsGained);
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.FLOOR, this.currentFloor);
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_FLOOR, this.currentFloor);
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.getFinalScore());
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_SCORE, this.getFinalScore());
     }
 
     if (this.currentCombo > 0) {
@@ -465,6 +479,12 @@ export class EndlessScene extends Phaser.Scene {
     this.achievementManager.addInGameStat('doubleJumps', 1);
     this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
     this.achievementManager.updateInGameStat('score', this.getFinalScore(), true);
+
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.maxComboInGame);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.getFinalScore());
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_SCORE, this.getFinalScore());
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, baseBonus);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.ENDLESS_SCORE, baseBonus);
   }
 
   private resetCombo(): void {
@@ -491,12 +511,20 @@ export class EndlessScene extends Phaser.Scene {
 
     this.achievementManager.updateInGameStat('pills', this.pillCount, true);
     this.achievementManager.updateInGameStat('score', this.getFinalScore(), true);
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.PILLS, 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, pillScore);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.ENDLESS_SCORE, pillScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.getFinalScore());
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_SCORE, this.getFinalScore());
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.PILLS, this.pillCount);
   }
 
   private onGuardCollision(): void {
     if (this.isGameOver) return;
 
     this.achievementManager.addInGameStat('guardHits', 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GUARD_HITS, 1);
 
     if (this.player.hasShield) {
       this.player.hasShield = false;
@@ -572,6 +600,25 @@ export class EndlessScene extends Phaser.Scene {
     const achData = this.achievementManager.getAchievementData();
     const noGuardHits = achData.inGameStats.guardHits === 0;
     this.achievementManager.onGameEnd(noGuardHits);
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GAMES_PLAYED, 1);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, finalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_SCORE, finalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.FLOOR, this.currentFloor);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.ENDLESS_FLOOR, this.currentFloor);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.maxComboInGame);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.PILLS, this.pillCount);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, finalScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, finalScore);
+    if (noGuardHits) {
+      this.seasonManager.updateTaskProgress(SeasonTaskType.NODAMAGE, 1);
+    }
+    if (sideEffectStats.maxAddiction > 0) {
+      this.seasonManager.updateTaskProgress(SeasonTaskType.ADDICTION, Math.floor(sideEffectStats.maxAddiction));
+    }
+    if (sideEffectStats.hallucinations > 0) {
+      this.seasonManager.updateTaskProgress(SeasonTaskType.HALLUCINATIONS, sideEffectStats.hallucinations);
+    }
 
     const archiveManager = ArchiveManager.getInstance();
     archiveManager.checkAllArchives();

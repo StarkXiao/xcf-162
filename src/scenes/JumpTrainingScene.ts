@@ -3,6 +3,8 @@ import { GameConfig } from '../config/GameConfig';
 import { Player } from '../characters/Player';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
+import { SeasonManager } from '../utils/SeasonManager';
+import { SeasonTaskType } from '../types';
 
 export class JumpTrainingScene extends Phaser.Scene {
   private player!: Player;
@@ -18,6 +20,7 @@ export class JumpTrainingScene extends Phaser.Scene {
   private hudTexts: Map<string, Phaser.GameObjects.Text> = new Map();
   private saveManager!: SaveManager;
   private audioManager!: AudioManager;
+  private seasonManager!: SeasonManager;
   private isEnded: boolean = false;
   private neonLights: Phaser.GameObjects.Image[] = [];
   private tutorialStep: number = 0;
@@ -31,6 +34,8 @@ export class JumpTrainingScene extends Phaser.Scene {
   create(): void {
     this.saveManager = SaveManager.getInstance();
     this.audioManager = AudioManager.getInstance();
+    this.seasonManager = SeasonManager.getInstance();
+    this.seasonManager.checkReset();
     this.currentFloor = 0;
     this.jumpCount = 0;
     this.comboCount = 0;
@@ -234,6 +239,7 @@ export class JumpTrainingScene extends Phaser.Scene {
     const isPerfect = (platform as Phaser.GameObjects.GameObject).getData('perfectZone') as boolean;
 
     if (floor > this.currentFloor) {
+      const floorsGained = floor - this.currentFloor;
       this.currentFloor = floor;
       if (this.currentFloor > this.highestFloor) {
         this.highestFloor = this.currentFloor;
@@ -246,6 +252,12 @@ export class JumpTrainingScene extends Phaser.Scene {
 
       this.audioManager.play('jump');
       this.updateHUD();
+
+      this.seasonManager.updateTaskProgress(SeasonTaskType.FLOOR, floorsGained);
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.FLOOR, this.highestFloor);
+      const trainingScore = this.highestFloor * 100 + this.perfectJumps * 50 + this.bestCombo * 20;
+      this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, trainingScore);
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, trainingScore);
     }
 
     if (this.time.now - this.lastJumpTime > GameConfig.comboTimeoutMs) {
@@ -267,6 +279,10 @@ export class JumpTrainingScene extends Phaser.Scene {
 
     this.audioManager.play('jump');
     this.updateHUD();
+
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.bestCombo);
+    const trainingScore = this.highestFloor * 100 + this.perfectJumps * 50 + this.bestCombo * 20;
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, trainingScore);
   }
 
   private showPerfectEffect(x: number, y: number): void {
@@ -330,6 +346,13 @@ export class JumpTrainingScene extends Phaser.Scene {
       highestFloor: this.highestFloor,
       gamesPlayed: 1
     });
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GAMES_PLAYED, 1);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.FLOOR, this.highestFloor);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.bestCombo);
+    const finalTrainingScore = this.highestFloor * 100 + this.perfectJumps * 50 + this.bestCombo * 20;
+    this.seasonManager.updateTaskProgress(SeasonTaskType.TRAINING_SCORE, finalTrainingScore);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.TRAINING_SCORE, finalTrainingScore);
 
     this.cameras.main.fade(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

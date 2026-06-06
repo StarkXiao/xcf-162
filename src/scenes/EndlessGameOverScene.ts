@@ -4,6 +4,7 @@ import { AudioManager } from '../audio/AudioManager';
 import { EndlessLeaderboardEntry } from '../types';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
+import { SeasonManager } from '../utils/SeasonManager';
 import { AchievementRarityConfig } from '../config/AchievementConfig';
 
 export class EndlessGameOverScene extends Phaser.Scene {
@@ -171,7 +172,12 @@ export class EndlessGameOverScene extends Phaser.Scene {
     const achievementManager = AchievementManager.getInstance();
     const achievementResult = achievementManager.checkAllAchievements();
 
-    const hasNew = archiveResult.newlyUnlocked.length > 0 || achievementResult.newlyUnlocked.length > 0;
+    const seasonManager = SeasonManager.getInstance();
+    seasonManager.checkReset();
+    const hasNewSeasonTasks = seasonManager.hasNewlyCompletedTasks();
+    const seasonClaimable = seasonManager.getClaimableCount();
+
+    const hasNew = archiveResult.newlyUnlocked.length > 0 || achievementResult.newlyUnlocked.length > 0 || hasNewSeasonTasks || seasonClaimable > 0;
 
     if (hasNew) {
       let notifHeight = 70;
@@ -180,6 +186,9 @@ export class EndlessGameOverScene extends Phaser.Scene {
       }
       if (archiveResult.newlyUnlocked.length > 0) {
         notifHeight += 30;
+      }
+      if (hasNewSeasonTasks || seasonClaimable > 0) {
+        notifHeight += 45;
       }
 
       const notifY = 15;
@@ -247,6 +256,46 @@ export class EndlessGameOverScene extends Phaser.Scene {
             wordWrap: { width: GameConfig.width - 80 }
           }
         ).setOrigin(0.5).setDepth(101);
+        currentY += 18;
+      }
+
+      if (hasNewSeasonTasks || seasonClaimable > 0) {
+        const seasonMsg = seasonClaimable > 0
+          ? `🏅 赛季任务更新！${hasNewSeasonTasks ? '有新任务完成，' : ''}有 ${seasonClaimable} 项奖励可领取`
+          : '🏅 赛季任务有新进展！';
+        this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          seasonMsg,
+          {
+            fontSize: '14px',
+            color: '#00ffaa',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5).setDepth(101);
+
+        const hintText = this.add.text(
+          GameConfig.width / 2,
+          currentY + 20,
+          '点击前往赛季面板 →',
+          {
+            fontSize: '12px',
+            color: '#66ffcc',
+            backgroundColor: '#003322',
+            padding: { left: 10, right: 10, top: 3, bottom: 3 }
+          }
+        ).setOrigin(0.5).setDepth(101).setInteractive({ useHandCursor: true });
+
+        hintText.on('pointerover', () => {
+          hintText.setBackgroundColor('#006644');
+        });
+        hintText.on('pointerout', () => {
+          hintText.setBackgroundColor('#003322');
+        });
+        hintText.on('pointerdown', () => {
+          this.audioManager.play('select');
+          this.scene.start('SeasonScene');
+        });
       }
 
       this.tweens.add({
