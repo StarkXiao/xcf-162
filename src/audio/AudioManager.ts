@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-type SoundType = 'jump' | 'pill' | 'guard' | 'gameover' | 'hover' | 'select' | 'shield';
+type SoundType = 'jump' | 'pill' | 'guard' | 'gameover' | 'hover' | 'select' | 'shield' | 'alert_surround' | 'alert_jump';
 
 export class AudioManager {
   private static instance: AudioManager;
@@ -30,8 +30,49 @@ export class AudioManager {
     this.createTone('hover', 600, 600, 0.05, 'sine', audioContext);
     this.createTone('select', 800, 1000, 0.1, 'square', audioContext);
     this.createTone('shield', 500, 800, 0.2, 'sine', audioContext);
+    this.createAlertTone('alert_surround', 440, 660, 0.6, 'square', audioContext);
+    this.createAlertTone('alert_jump', 220, 880, 0.8, 'sawtooth', audioContext);
 
     this.createMusic(audioContext);
+  }
+
+  private createAlertTone(key: SoundType, startFreq: number, endFreq: number, duration: number, type: OscillatorType, audioContext: AudioContext): void {
+    const sampleRate = 44100;
+    const samples = sampleRate * duration;
+    const buffer = audioContext.createBuffer(1, samples, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const beepPhase = (t % 0.15) / 0.15;
+      const freq = startFreq + (endFreq - startFreq) * (t / duration);
+      const angle = t * freq * Math.PI * 2;
+
+      let sample = 0;
+      switch (type) {
+        case 'sine':
+          sample = Math.sin(angle);
+          break;
+        case 'square':
+          sample = Math.sign(Math.sin(angle));
+          break;
+        case 'sawtooth':
+          sample = 2 * (t * freq - Math.floor(t * freq + 0.5));
+          break;
+        case 'triangle':
+          sample = Math.abs(4 * (t * freq - Math.floor(t * freq + 0.75)) + 1) * 2 - 1;
+          break;
+      }
+
+      const beepGate = beepPhase < 0.7 ? 1 : 0;
+      const envelope = Math.sin((t / duration) * Math.PI);
+      data[i] = sample * envelope * beepGate * 0.35;
+    }
+
+    const arrayBuffer = this.audioBufferToArrayBuffer(buffer);
+    this.scene.game.cache.audio.add(key, arrayBuffer);
+    const sound = this.scene.sound.add(key);
+    this.sounds.set(key, sound);
   }
 
   private createTone(key: SoundType, startFreq: number, endFreq: number, duration: number, type: OscillatorType, audioContext: AudioContext): void {

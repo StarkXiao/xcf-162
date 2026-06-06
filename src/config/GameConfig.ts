@@ -1,5 +1,57 @@
 import { TimeOfDay, TimeOfDayConfig, FloorEventType } from '../types';
 
+export enum GuardChaseState {
+  PATROL = 'patrol',
+  SURROUND = 'surround',
+  JUMP_CHASE = 'jump_chase'
+}
+
+export const GuardChaseStateConfig: Record<GuardChaseState, {
+  name: string;
+  description: string;
+  speedMultiplier: number;
+  detectionRangeMultiplier: number;
+  spawnMultiplier: number;
+  surroundEnabled: boolean;
+  jumpChaseEnabled: boolean;
+  alertColor: string;
+  alertIcon: string;
+}> = {
+  [GuardChaseState.PATROL]: {
+    name: '巡逻模式',
+    description: '保安正在巡逻',
+    speedMultiplier: 1.0,
+    detectionRangeMultiplier: 1.0,
+    spawnMultiplier: 1.0,
+    surroundEnabled: false,
+    jumpChaseEnabled: false,
+    alertColor: '#00ff88',
+    alertIcon: '👮'
+  },
+  [GuardChaseState.SURROUND]: {
+    name: '围堵模式',
+    description: '保安正在围堵！',
+    speedMultiplier: 1.25,
+    detectionRangeMultiplier: 1.4,
+    spawnMultiplier: 1.5,
+    surroundEnabled: true,
+    jumpChaseEnabled: false,
+    alertColor: '#ffaa00',
+    alertIcon: '⚠️'
+  },
+  [GuardChaseState.JUMP_CHASE]: {
+    name: '跳跃追击',
+    description: '保安跳跃追击！极度危险！',
+    speedMultiplier: 1.6,
+    detectionRangeMultiplier: 1.8,
+    spawnMultiplier: 2.0,
+    surroundEnabled: true,
+    jumpChaseEnabled: true,
+    alertColor: '#ff0066',
+    alertIcon: '🚨'
+  }
+};
+
 export class GameConfig {
   static readonly width: number = 480;
   static readonly height: number = 720;
@@ -32,6 +84,12 @@ export class GameConfig {
   static readonly endlessMaxFloors: number = 999;
   static readonly endlessBaseScoreRate: number = 15;
   static readonly endlessLeaderboardMaxEntries: number = 10;
+
+  static readonly guardChaseUnlockTime: { state: GuardChaseState; timeMs: number }[] = [
+    { state: GuardChaseState.PATROL, timeMs: 0 },
+    { state: GuardChaseState.SURROUND, timeMs: 20000 },
+    { state: GuardChaseState.JUMP_CHASE, timeMs: 45000 }
+  ];
 
   static readonly endlessFloorMultipliers: { floor: number; multiplier: number }[] = [
     { floor: 1, multiplier: 1.0 },

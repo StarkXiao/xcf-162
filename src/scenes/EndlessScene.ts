@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillEffects } from '../config/GameConfig';
+import { GameConfig, PillType, PillEffects, GuardChaseState, GuardChaseStateConfig } from '../config/GameConfig';
 import { Player } from '../characters/Player';
 import { Guard } from '../enemies/Guard';
 import { PillManager } from '../items/PillManager';
@@ -35,6 +35,9 @@ export class EndlessScene extends Phaser.Scene {
   private timeRemaining: number = 0;
   private totalTime: number = 0;
   private highestPlatformFloor: number = 0;
+  private survivalStartTime: number = 0;
+  private currentChaseState: GuardChaseState = GuardChaseState.PATROL;
+  private chaseStateCheckTimer!: Phaser.Time.TimerEvent;
 
   constructor() {
     super('EndlessScene');
@@ -57,6 +60,8 @@ export class EndlessScene extends Phaser.Scene {
     this.totalTime = GameConfig.endlessBaseTime;
     this.timeRemaining = GameConfig.endlessBaseTime;
     this.highestPlatformFloor = 0;
+    this.survivalStartTime = this.time.now;
+    this.currentChaseState = GuardChaseState.PATROL;
 
     this.cameras.main.setBackgroundColor('#1a0a2e');
     this.createBackground();
@@ -209,6 +214,50 @@ export class EndlessScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
+
+    this.chaseStateCheckTimer = this.time.addEvent({
+      delay: 500,
+      callback: this.checkChaseStateUpgrade,
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  private checkChaseStateUpgrade(): void {
+    if (this.isGameOver) return;
+
+    const survivalTime = this.time.now - this.survivalStartTime;
+    let newState = GuardChaseState.PATROL;
+
+    for (const unlock of GameConfig.guardChaseUnlockTime) {
+      if (survivalTime >= unlock.timeMs) {
+        newState = unlock.state;
+      }
+    }
+
+    if (newState !== this.currentChaseState) {
+      this.currentChaseState = newState;
+      this.applyChaseStateToAllGuards();
+      this.hud.updateChaseState(newState);
+
+      if (newState === GuardChaseState.SURROUND) {
+        this.audioManager.play('alert_surround');
+      } else if (newState === GuardChaseState.JUMP_CHASE) {
+        this.audioManager.play('alert_jump');
+      }
+
+      this.resetSpawnTimer();
+    }
+  }
+
+  private applyChaseStateToAllGuards(): void {
+    this.guards.forEach(guard => {
+      guard.setChaseState(this.currentChaseState);
+    });
+  }
+
+  getCurrentChaseState(): GuardChaseState {
+    return this.currentChaseState;
   }
 
   private getDifficultyConfig(): { guardSpawnMul: number; guardSpeedMul: number; pillSpawnMul: number } {
@@ -219,7 +268,12 @@ export class EndlessScene extends Phaser.Scene {
         result = config;
       }
     }
-    return result;
+    const chaseConfig = GuardChaseStateConfig[this.currentChaseState];
+    return {
+      guardSpawnMul: result.guardSpawnMul * chaseConfig.spawnMultiplier,
+      guardSpeedMul: result.guardSpeedMul,
+      pillSpawnMul: result.pillSpawnMul
+    };
   }
 
   private updateMultiplier(): void {
@@ -284,6 +338,7 @@ export class EndlessScene extends Phaser.Scene {
       diffConfig.guardSpeedMul,
       Math.floor(150 * diffConfig.guardSpeedMul)
     );
+    guard.setChaseState(this.currentChaseState);
     this.guards.push(guard);
 
     this.platforms.forEach(platformGroup => {
@@ -398,6 +453,7 @@ export class EndlessScene extends Phaser.Scene {
     if (this.scoreTimer) this.scoreTimer.destroy();
     if (this.timerEvent) this.timerEvent.destroy();
     if (this.comboCheckTimer) this.comboCheckTimer.destroy();
+    if (this.chaseStateCheckTimer) this.chaseStateCheckTimer.destroy();
 
     this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
 

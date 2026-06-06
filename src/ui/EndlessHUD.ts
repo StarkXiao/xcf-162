@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillColors } from '../config/GameConfig';
+import { GameConfig, PillType, PillColors, GuardChaseState, GuardChaseStateConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 
 export class EndlessHUD {
@@ -24,6 +24,11 @@ export class EndlessHUD {
   private sfxBtn!: Phaser.GameObjects.Text;
   private timeBonusPopup!: Phaser.GameObjects.Text;
   private nextMilestoneText!: Phaser.GameObjects.Text;
+  private chaseStateText!: Phaser.GameObjects.Text;
+  private chaseStateIcon!: Phaser.GameObjects.Text;
+  private chaseStateBanner!: Phaser.GameObjects.Text;
+  private chaseStateBannerBg!: Phaser.GameObjects.Graphics;
+  private currentChaseState: GuardChaseState = GuardChaseState.PATROL;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -68,6 +73,28 @@ export class EndlessHUD {
       fontSize: '12px',
       color: '#888888'
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
+
+    const initialStateConfig = GuardChaseStateConfig[GuardChaseState.PATROL];
+    this.chaseStateIcon = this.scene.add.text(GameConfig.width - 160, 8 + scrollY, initialStateConfig.alertIcon, {
+      fontSize: '20px'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.chaseStateText = this.scene.add.text(GameConfig.width - 130, 10 + scrollY, initialStateConfig.name, {
+      fontSize: '14px',
+      color: initialStateConfig.alertColor,
+      fontStyle: 'bold'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.chaseStateBannerBg = this.scene.add.graphics().setScrollFactor(0).setDepth(200);
+    this.chaseStateBannerBg.setVisible(false);
+
+    this.chaseStateBanner = this.scene.add.text(GameConfig.width / 2, GameConfig.height / 2 + scrollY, '', {
+      fontSize: '36px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0);
 
     this.pillText = this.scene.add.text(GameConfig.width - 70, 8 + scrollY, '0', {
       fontSize: '20px',
@@ -400,6 +427,47 @@ export class EndlessHUD {
     });
   }
 
+  updateChaseState(state: GuardChaseState): void {
+    if (state === this.currentChaseState) return;
+
+    this.currentChaseState = state;
+    const config = GuardChaseStateConfig[state];
+
+    this.chaseStateIcon.setText(config.alertIcon);
+    this.chaseStateText.setText(config.name);
+    this.chaseStateText.setColor(config.alertColor);
+
+    this.scene.tweens.add({
+      targets: [this.chaseStateIcon, this.chaseStateText],
+      scale: { from: 1.8, to: 1 },
+      duration: 500,
+      ease: 'Elastic.easeOut'
+    });
+
+    const scrollY = this.scene.cameras.main.scrollY;
+    this.chaseStateBannerBg.setVisible(true);
+    this.chaseStateBannerBg.clear();
+    const bannerColor = parseInt(config.alertColor.replace('#', ''), 16);
+    this.chaseStateBannerBg.fillStyle(bannerColor, 0.3);
+    this.chaseStateBannerBg.fillRect(0, GameConfig.height / 2 - 80 + scrollY, GameConfig.width, 160);
+
+    this.chaseStateBanner.setText(`${config.alertIcon} ${config.description} ${config.alertIcon}`);
+    this.chaseStateBanner.setColor(config.alertColor);
+    this.chaseStateBanner.setAlpha(1);
+    this.chaseStateBanner.setY(GameConfig.height / 2 + scrollY);
+
+    this.scene.tweens.add({
+      targets: this.chaseStateBanner,
+      y: '-=60',
+      alpha: 0,
+      duration: 2500,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.chaseStateBannerBg.setVisible(false);
+      }
+    });
+  }
+
   update(): void {
     const scrollY = this.scene.cameras.main.scrollY;
 
@@ -408,6 +476,15 @@ export class EndlessHUD {
       this.shieldIcon.clear();
       this.shieldIcon.lineStyle(2, 0xff00ff, pulse);
       this.shieldIcon.strokeCircle(50, 95 + scrollY, 15);
+    }
+
+    if (this.currentChaseState !== GuardChaseState.PATROL) {
+      const pulse = Math.sin(this.scene.time.now * 0.008) * 0.3 + 0.7;
+      this.chaseStateIcon.setAlpha(pulse);
+      this.chaseStateText.setAlpha(pulse);
+    } else {
+      this.chaseStateIcon.setAlpha(1);
+      this.chaseStateText.setAlpha(1);
     }
   }
 }
