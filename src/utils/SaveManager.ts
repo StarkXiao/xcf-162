@@ -9,7 +9,10 @@ export class SaveManager {
     gamesPlayed: 0,
     lastTimeOfDay: TimeOfDay.DAWN,
     totalDayCycles: 0,
-    eventsTriggered: 0
+    eventsTriggered: 0,
+    maxCombo: 0,
+    maxNoDamageFloors: 0,
+    totalCombos: 0
   };
 
   private constructor() {
@@ -112,6 +115,45 @@ export class SaveManager {
 
   isNewHighScore(score: number): boolean {
     return score > this.getHighScore();
+  }
+
+  getMaxCombo(): number {
+    return this.getSaveData().maxCombo || 0;
+  }
+
+  setMaxCombo(combo: number): void {
+    const current = this.getMaxCombo();
+    if (combo > current) {
+      this.saveGameData({ maxCombo: combo });
+    }
+  }
+
+  getMaxNoDamageFloors(): number {
+    return this.getSaveData().maxNoDamageFloors || 0;
+  }
+
+  setMaxNoDamageFloors(floors: number): void {
+    const current = this.getMaxNoDamageFloors();
+    if (floors > current) {
+      this.saveGameData({ maxNoDamageFloors: floors });
+    }
+  }
+
+  addCombos(count: number): void {
+    const data = this.getSaveData();
+    this.saveGameData({ totalCombos: (data.totalCombos || 0) + count });
+  }
+
+  getTotalCombos(): number {
+    return this.getSaveData().totalCombos || 0;
+  }
+
+  isNewMaxCombo(combo: number): boolean {
+    return combo > this.getMaxCombo();
+  }
+
+  isNewMaxNoDamageFloors(floors: number): boolean {
+    return floors > this.getMaxNoDamageFloors();
   }
 }
 

@@ -27,6 +27,8 @@ export class HUD {
   private eventTimerBar!: Phaser.GameObjects.Graphics;
   private eventTimerBarBg!: Phaser.GameObjects.Graphics;
   private currentEvent: FloorEvent | null = null;
+  private comboText!: Phaser.GameObjects.Text;
+  private noDamageText!: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -105,6 +107,18 @@ export class HUD {
 
     this.shieldIcon = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
     this.shieldIcon.setVisible(false);
+
+    this.comboText = this.scene.add.text(GameConfig.width / 2, 80 + scrollY, '', {
+      fontSize: '18px',
+      color: '#ff66ff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
+
+    this.noDamageText = this.scene.add.text(GameConfig.width / 2, 100 + scrollY, '', {
+      fontSize: '14px',
+      color: '#66ff66',
+      fontStyle: 'bold'
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
 
     this.musicBtn = this.scene.add.text(10, GameConfig.height - 40 + scrollY, '♪', {
       fontSize: '24px',
@@ -304,6 +318,116 @@ export class HUD {
       y: '-=100',
       alpha: 0,
       duration: 1000,
+      onComplete: () => {
+        popup.destroy();
+        const index = this.scorePopup.indexOf(popup);
+        if (index > -1) this.scorePopup.splice(index, 1);
+      }
+    });
+  }
+
+  updateCombo(combo: number): void {
+    if (combo <= 0) {
+      this.scene.tweens.add({
+        targets: this.comboText,
+        alpha: 0,
+        scale: 0.5,
+        duration: 200
+      });
+      return;
+    }
+
+    this.comboText.setText(`${combo} 连击!`);
+    this.comboText.setAlpha(1);
+
+    this.scene.tweens.add({
+      targets: this.comboText,
+      scale: { from: 1.6, to: 1 },
+      duration: 250,
+      ease: 'Elastic.easeOut'
+    });
+
+    const hue = (combo * 30) % 360;
+    this.comboText.setColor(`hsl(${hue}, 100%, 70%)`);
+  }
+
+  updateNoDamageFloors(floors: number): void {
+    if (floors <= 0) {
+      this.scene.tweens.add({
+        targets: this.noDamageText,
+        alpha: 0,
+        duration: 200
+      });
+      return;
+    }
+
+    this.noDamageText.setText(`无伤连层 ${floors}`);
+    this.noDamageText.setAlpha(1);
+
+    this.scene.tweens.add({
+      targets: this.noDamageText,
+      scale: { from: 1.4, to: 1 },
+      duration: 250,
+      ease: 'Elastic.easeOut'
+    });
+  }
+
+  showComboBonus(value: number, combo: number): void {
+    const scrollY = this.scene.cameras.main.scrollY;
+    const popup = this.scene.add.text(GameConfig.width / 2, GameConfig.height / 2 - 40 + scrollY, `连击 +${value}`, {
+      fontSize: '28px',
+      color: '#ff66ff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
+
+    if (combo >= 5) {
+      popup.setFontSize(36);
+      popup.setColor('#ffff00');
+    }
+    if (combo >= 10) {
+      popup.setFontSize(44);
+      popup.setColor('#ff0066');
+    }
+
+    this.scorePopup.push(popup);
+
+    this.scene.tweens.add({
+      targets: popup,
+      y: '-=120',
+      alpha: 0,
+      duration: 1200,
+      onComplete: () => {
+        popup.destroy();
+        const index = this.scorePopup.indexOf(popup);
+        if (index > -1) this.scorePopup.splice(index, 1);
+      }
+    });
+  }
+
+  showNoDamageBonus(value: number, floors: number): void {
+    const scrollY = this.scene.cameras.main.scrollY;
+    const popup = this.scene.add.text(GameConfig.width / 2, GameConfig.height / 2 - 80 + scrollY, `无伤 ${floors}层 +${value}`, {
+      fontSize: '26px',
+      color: '#66ff66',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
+
+    if (floors >= 5) {
+      popup.setFontSize(32);
+      popup.setColor('#00ffaa');
+    }
+
+    this.scorePopup.push(popup);
+
+    this.scene.tweens.add({
+      targets: popup,
+      y: '-=130',
+      alpha: 0,
+      duration: 1300,
       onComplete: () => {
         popup.destroy();
         const index = this.scorePopup.indexOf(popup);

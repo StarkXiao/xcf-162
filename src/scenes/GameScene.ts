@@ -34,6 +34,12 @@ export class GameScene extends Phaser.Scene {
   private darkOverlay!: Phaser.GameObjects.Graphics;
   private previousCycleCount: number = 0;
   private previousEventsTriggered: number = 0;
+  private currentCombo: number = 0;
+  private maxComboInGame: number = 0;
+  private noDamageFloorStreak: number = 0;
+  private maxNoDamageFloorsInGame: number = 0;
+  private lastComboTime: number = 0;
+  private comboCheckTimer!: Phaser.Time.TimerEvent;
 
   constructor() {
     super('GameScene');
@@ -51,6 +57,11 @@ export class GameScene extends Phaser.Scene {
     this.guards = [];
     this.previousCycleCount = 0;
     this.previousEventsTriggered = 0;
+    this.currentCombo = 0;
+    this.maxComboInGame = 0;
+    this.noDamageFloorStreak = 0;
+    this.maxNoDamageFloorsInGame = 0;
+    this.lastComboTime = 0;
 
     const initialTime = this.saveManager.getLastTimeOfDay();
     this.cameras.main.setBackgroundColor(TimeOfDayConfigs[initialTime].bgColor);
@@ -81,6 +92,10 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateFloor(this.currentFloor);
     this.hud.updatePills(this.pillCount);
     this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
+    this.hud.updateCombo(0);
+    this.hud.updateNoDamageFloors(0);
+
+    this.events.on('playerDoubleJump', this.onPlayerDoubleJump, this);
 
     this.setupCollisions();
     this.setupTimers();
@@ -179,6 +194,17 @@ export class GameScene extends Phaser.Scene {
         const scoreMultiplier = this.floorEventManager.getEventEffect('score');
         this.score += Math.floor(GameConfig.survivalScoreRate * scoreMultiplier);
         this.hud.updateScore(this.score);
+      },
+      callbackScope: this,
+      loop: true
+    });
+
+    this.comboCheckTimer = this.time.addEvent({
+      delay: 100,
+      callback: () => {
+        if (this.currentCombo > 0 && this.time.now - this.lastComboTime > GameConfig.comboTimeoutMs) {
+          this.resetCombo();
+        }
       },
       callbackScope: this,
       loop: true
@@ -324,7 +350,47 @@ export class GameScene extends Phaser.Scene {
       this.hud.updateFloor(this.currentFloor);
       this.floorEventManager.checkFloorEvent(this.currentFloor);
       this.audioManager.play('jump');
+
+      this.noDamageFloorStreak++;
+      if (this.noDamageFloorStreak > this.maxNoDamageFloorsInGame) {
+        this.maxNoDamageFloorsInGame = this.noDamageFloorStreak;
+      }
+      this.hud.updateNoDamageFloors(this.noDamageFloorStreak);
+
+      const bonus = GameConfig.noDamageFloorBaseBonus + (this.noDamageFloorStreak - 1) * GameConfig.noDamageFloorBonusPerFloor;
+      const scoreMultiplier = this.floorEventManager.getEventEffect('score');
+      const finalBonus = Math.floor(bonus * scoreMultiplier);
+      this.score += finalBonus;
+      this.hud.updateScore(this.score);
+      this.hud.showNoDamageBonus(finalBonus, this.noDamageFloorStreak);
     }
+
+    if (this.currentCombo > 0) {
+      this.resetCombo();
+    }
+  }
+
+  private onPlayerDoubleJump(): void {
+    this.currentCombo++;
+    this.lastComboTime = this.time.now;
+
+    if (this.currentCombo > this.maxComboInGame) {
+      this.maxComboInGame = this.currentCombo;
+    }
+
+    const bonus = GameConfig.comboBaseScore + (this.currentCombo - 1) * GameConfig.comboMultiplierPerCombo;
+    const scoreMultiplier = this.floorEventManager.getEventEffect('score');
+    const finalBonus = Math.floor(bonus * scoreMultiplier);
+    this.score += finalBonus;
+
+    this.hud.updateScore(this.score);
+    this.hud.updateCombo(this.currentCombo);
+    this.hud.showComboBonus(finalBonus, this.currentCombo);
+  }
+
+  private resetCombo(): void {
+    this.currentCombo = 0;
+    this.hud.updateCombo(0);
   }
 
   private onPillCollect(_player: unknown, pill: unknown): void {
@@ -352,6 +418,8 @@ export class GameScene extends Phaser.Scene {
       this.guards.forEach(guard => {
         guard.x = guard.x < this.player.x ? guard.x - 100 : guard.x + 100;
       });
+      this.noDamageFloorStreak = 0;
+      this.hud.updateNoDamageFloors(0);
       return;
     }
 
@@ -364,6 +432,9 @@ export class GameScene extends Phaser.Scene {
     if (this.spawnTimer) this.spawnTimer.destroy();
     if (this.pillTimer) this.pillTimer.destroy();
     if (this.scoreTimer) this.scoreTimer.destroy();
+    if (this.comboCheckTimer) this.comboCheckTimer.destroy();
+
+    this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
 
     this.timeManager.pause();
 
@@ -377,7 +448,9 @@ export class GameScene extends Phaser.Scene {
       this.scene.start('GameOverScene', {
         score: this.score,
         pills: this.pillCount,
-        floor: this.currentFloor
+        floor: this.currentFloor,
+        maxCombo: this.maxComboInGame,
+        maxNoDamageFloors: this.maxNoDamageFloorsInGame
       });
     });
   }
@@ -393,7 +466,10 @@ export class GameScene extends Phaser.Scene {
       gamesPlayed: saveData.gamesPlayed + 1,
       lastTimeOfDay: this.timeManager.getCurrentTimeOfDay(),
       totalDayCycles: saveData.totalDayCycles + Math.max(0, newCycles),
-      eventsTriggered: saveData.eventsTriggered + Math.max(0, newEvents)
+      eventsTriggered: saveData.eventsTriggered + Math.max(0, newEvents),
+      maxCombo: Math.max(saveData.maxCombo || 0, this.maxComboInGame),
+      maxNoDamageFloors: Math.max(saveData.maxNoDamageFloors || 0, this.maxNoDamageFloorsInGame),
+      totalCombos: (saveData.totalCombos || 0) + this.maxComboInGame
     });
   }
 

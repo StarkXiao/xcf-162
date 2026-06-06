@@ -17,6 +17,9 @@ export interface SaveData {
   lastTimeOfDay: TimeOfDay;
   totalDayCycles: number;
   eventsTriggered: number;
+  maxCombo: number;
+  maxNoDamageFloors: number;
+  totalCombos: number;
 }
 
 export interface Platform {

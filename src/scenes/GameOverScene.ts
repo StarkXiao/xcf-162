@@ -7,24 +7,35 @@ export class GameOverScene extends Phaser.Scene {
   private saveManager!: SaveManager;
   private audioManager!: AudioManager;
   private finalScore: number = 0;
+  private finalMaxCombo: number = 0;
+  private finalMaxNoDamageFloors: number = 0;
   private isNewHighScore: boolean = false;
+  private isNewMaxCombo: boolean = false;
+  private isNewMaxNoDamage: boolean = false;
 
   constructor() {
     super('GameOverScene');
   }
 
-  init(data: { score: number; pills: number; floor: number }): void {
+  init(data: { score: number; pills: number; floor: number; maxCombo?: number; maxNoDamageFloors?: number }): void {
     this.finalScore = data.score;
+    this.finalMaxCombo = data.maxCombo || 0;
+    this.finalMaxNoDamageFloors = data.maxNoDamageFloors || 0;
     this.saveManager = SaveManager.getInstance();
     this.audioManager = AudioManager.getInstance();
 
     const saveData = this.saveManager.getSaveData();
     this.isNewHighScore = data.score > saveData.highScore;
+    this.isNewMaxCombo = this.finalMaxCombo > (saveData.maxCombo || 0);
+    this.isNewMaxNoDamage = this.finalMaxNoDamageFloors > (saveData.maxNoDamageFloors || 0);
 
     this.saveManager.saveGameData({
       highScore: Math.max(saveData.highScore, data.score),
       totalPills: saveData.totalPills + data.pills,
-      gamesPlayed: saveData.gamesPlayed + 1
+      gamesPlayed: saveData.gamesPlayed + 1,
+      maxCombo: Math.max(saveData.maxCombo || 0, this.finalMaxCombo),
+      maxNoDamageFloors: Math.max(saveData.maxNoDamageFloors || 0, this.finalMaxNoDamageFloors),
+      totalCombos: (saveData.totalCombos || 0) + this.finalMaxCombo
     });
   }
 
@@ -33,14 +44,16 @@ export class GameOverScene extends Phaser.Scene {
 
     this.add.rectangle(GameConfig.width / 2, 0, GameConfig.width, GameConfig.height, 0x000000, 0.8);
 
-    this.add.text(GameConfig.width / 2, 150, '游戏结束', {
+    this.add.text(GameConfig.width / 2, 100, '游戏结束', {
       fontSize: '48px',
       color: '#ff0066',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
+    let nextY = 160;
+
     if (this.isNewHighScore) {
-      const newRecord = this.add.text(GameConfig.width / 2, 210, '★ 新纪录! ★', {
+      const newRecord = this.add.text(GameConfig.width / 2, nextY, '★ 新纪录! ★', {
         fontSize: '24px',
         color: '#ffcc00',
         fontStyle: 'bold'
@@ -53,31 +66,72 @@ export class GameOverScene extends Phaser.Scene {
         yoyo: true,
         repeat: -1
       });
+      nextY += 40;
     }
 
-    this.add.text(GameConfig.width / 2, 280, '得分', {
+    this.add.text(GameConfig.width / 2, nextY, '得分', {
       fontSize: '20px',
       color: '#888888'
     }).setOrigin(0.5);
+    nextY += 35;
 
-    this.add.text(GameConfig.width / 2, 320, this.finalScore.toString(), {
+    this.add.text(GameConfig.width / 2, nextY, this.finalScore.toString(), {
       fontSize: '64px',
       color: '#00ffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
+    nextY += 55;
 
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 400, `最高分: ${saveData.highScore}`, {
+    this.add.text(GameConfig.width / 2, nextY, `最高分: ${saveData.highScore}`, {
       fontSize: '18px',
       color: '#ffcc00'
     }).setOrigin(0.5);
+    nextY += 40;
 
-    const restartBtn = this.add.text(GameConfig.width / 2, 480, '再来一次', {
+    const comboLabel = this.add.text(GameConfig.width / 2, nextY, `最高连击: ${this.finalMaxCombo}`, {
+      fontSize: '20px',
+      color: this.isNewMaxCombo ? '#ffff00' : '#ff66ff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    if (this.isNewMaxCombo && this.finalMaxCombo > 0) {
+      comboLabel.setText(`最高连击: ${this.finalMaxCombo} ★新纪录!`);
+      this.tweens.add({
+        targets: comboLabel,
+        scale: { from: 1, to: 1.15 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+    nextY += 35;
+
+    const noDamageLabel = this.add.text(GameConfig.width / 2, nextY, `无伤连层: ${this.finalMaxNoDamageFloors}`, {
+      fontSize: '20px',
+      color: this.isNewMaxNoDamage ? '#ffff00' : '#66ff66',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    if (this.isNewMaxNoDamage && this.finalMaxNoDamageFloors > 0) {
+      noDamageLabel.setText(`无伤连层: ${this.finalMaxNoDamageFloors} ★新纪录!`);
+      this.tweens.add({
+        targets: noDamageLabel,
+        scale: { from: 1, to: 1.15 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+    nextY += 55;
+
+    const restartBtn = this.add.text(GameConfig.width / 2, nextY, '再来一次', {
       fontSize: '28px',
       color: '#ffffff',
       backgroundColor: '#ff0066',
       padding: { left: 30, right: 30, top: 12, bottom: 12 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    nextY += 70;
 
     restartBtn.on('pointerover', () => {
       restartBtn.setBackgroundColor('#ff3385');
@@ -93,7 +147,7 @@ export class GameOverScene extends Phaser.Scene {
       this.scene.start('GameScene');
     });
 
-    const menuBtn = this.add.text(GameConfig.width / 2, 560, '返回菜单', {
+    const menuBtn = this.add.text(GameConfig.width / 2, nextY, '返回菜单', {
       fontSize: '22px',
       color: '#888888',
       backgroundColor: '#222222',

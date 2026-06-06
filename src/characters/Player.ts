@@ -71,6 +71,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.jumpCount++;
       this.canDoubleJump = false;
       this.playDoubleJumpEffect();
+      this.scene.events.emit('playerDoubleJump');
     }
   }
 

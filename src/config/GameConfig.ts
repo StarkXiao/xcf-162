@@ -19,6 +19,13 @@ export class GameConfig {
   static readonly survivalScoreRate: number = 10;
   static readonly maxFloors: number = 20;
   static readonly eventTriggerFloorInterval: number = 3;
+
+  static readonly comboBaseScore: number = 50;
+  static readonly comboMultiplierPerCombo: number = 25;
+  static readonly comboTimeoutMs: number = 2000;
+
+  static readonly noDamageFloorBaseBonus: number = 200;
+  static readonly noDamageFloorBonusPerFloor: number = 100;
 }
 
 export enum PillType {
