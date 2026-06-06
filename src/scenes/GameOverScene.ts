@@ -3,6 +3,7 @@ import { GameConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
+import { SeasonManager } from '../utils/SeasonManager';
 import { AchievementRarityConfig } from '../config/AchievementConfig';
 
 export class GameOverScene extends Phaser.Scene {
@@ -271,7 +272,12 @@ export class GameOverScene extends Phaser.Scene {
     const achievementManager = AchievementManager.getInstance();
     const achievementResult = achievementManager.checkAllAchievements();
 
-    const hasNew = archiveResult.newlyUnlocked.length > 0 || achievementResult.newlyUnlocked.length > 0;
+    const seasonManager = SeasonManager.getInstance();
+    seasonManager.checkReset();
+    const hasNewSeasonTasks = seasonManager.hasNewlyCompletedTasks();
+    const seasonClaimable = seasonManager.getClaimableCount();
+
+    const hasNew = archiveResult.newlyUnlocked.length > 0 || achievementResult.newlyUnlocked.length > 0 || hasNewSeasonTasks || seasonClaimable > 0;
 
     if (hasNew) {
       let notifY = GameConfig.height - 130;
@@ -282,6 +288,9 @@ export class GameOverScene extends Phaser.Scene {
       }
       if (archiveResult.newlyUnlocked.length > 0) {
         notifHeight += 30;
+      }
+      if (hasNewSeasonTasks || seasonClaimable > 0) {
+        notifHeight += 45;
       }
 
       notifY = GameConfig.height - notifHeight - 10;
@@ -353,6 +362,46 @@ export class GameOverScene extends Phaser.Scene {
             wordWrap: { width: GameConfig.width - 80 }
           }
         ).setOrigin(0.5).setDepth(101);
+        currentY += 24;
+      }
+
+      if (hasNewSeasonTasks || seasonClaimable > 0) {
+        const seasonMsg = seasonClaimable > 0
+          ? `🏅 赛季任务更新！${seasonClaimable} 个奖励可领取`
+          : '🏅 赛季任务有新进展！';
+        const seasonText = this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          seasonMsg,
+          {
+            fontSize: '14px',
+            color: '#66ffff',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5).setDepth(101).setInteractive({ useHandCursor: true });
+        tweenTargets.push(seasonText);
+        currentY += 20;
+
+        const goSeason = this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          '[点击查看赛季进度]',
+          {
+            fontSize: '11px',
+            color: '#ffaa66',
+            fontStyle: 'italic'
+          }
+        ).setOrigin(0.5).setDepth(101).setInteractive({ useHandCursor: true });
+        tweenTargets.push(goSeason);
+
+        seasonText.on('pointerdown', () => {
+          this.audioManager.play('select');
+          this.scene.start('SeasonScene');
+        });
+        goSeason.on('pointerdown', () => {
+          this.audioManager.play('select');
+          this.scene.start('SeasonScene');
+        });
       }
 
       this.tweens.add({

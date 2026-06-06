@@ -1,5 +1,6 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress } from '../types';
 import { GameConfig } from '../config/GameConfig';
+import { getCurrentSeason, pickWeeklyTasks, SeasonCumulativeTasks } from '../config/SeasonConfig';
 
 export class SaveManager {
   private static instance: SaveManager;
@@ -62,6 +63,56 @@ export class SaveManager {
     }
   };
 
+  private getDefaultSeasonData(): SeasonData {
+    const season = getCurrentSeason();
+    const weeklyTasks = pickWeeklyTasks(season.startDate);
+
+    const cumulativeProgress: SeasonTaskProgress[] = SeasonCumulativeTasks.map(t => ({
+      taskId: t.id,
+      currentValue: 0,
+      targetValue: t.targetValue,
+      isCompleted: false,
+      isClaimed: false,
+      updatedAt: Date.now()
+    }));
+
+    const weeklyProgress: SeasonTaskProgress[] = weeklyTasks.map(t => ({
+      taskId: t.id,
+      currentValue: 0,
+      targetValue: t.targetValue,
+      isCompleted: false,
+      isClaimed: false,
+      updatedAt: Date.now()
+    }));
+
+    return {
+      currentSeason: season,
+      weeklyResetTimestamp: this.getNextWeeklyReset(),
+      totalSeasonPoints: 0,
+      cumulativeTaskProgress: cumulativeProgress,
+      weeklyTaskProgress: weeklyProgress,
+      claimedRewards: [],
+      newlyCompletedTasks: [],
+      newlyClaimableTasks: [],
+      seasonLevel: 1,
+      seasonExp: 0,
+      lifetimeStats: {
+        totalSeasonsCompleted: 0,
+        totalSeasonPointsEarned: 0,
+        totalTasksCompleted: 0,
+        weeklyBestCompletionRate: 0
+      }
+    };
+  }
+
+  private getNextWeeklyReset(): number {
+    const now = new Date();
+    const nextMonday = new Date(now);
+    nextMonday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
+    nextMonday.setHours(0, 0, 0, 0);
+    return nextMonday.getTime();
+  }
+
   private defaultData: SaveData = {
     highScore: 0,
     totalPills: 0,
@@ -91,7 +142,8 @@ export class SaveManager {
       unlockedHiddenFloors: [],
       newlyUnlocked: []
     },
-    achievements: this.defaultAchievementData
+    achievements: this.defaultAchievementData,
+    season: this.getDefaultSeasonData()
   };
 
   private constructor() {
@@ -492,6 +544,96 @@ export class SaveManager {
     const archive = this.getArchiveData();
     archive.newlyUnlocked = [];
     this.saveGameData({ archive });
+  }
+
+  getSeasonData(): SeasonData {
+    const data = this.getSaveData();
+    const defaultSeason = this.getDefaultSeasonData();
+    const saved = data.season || defaultSeason;
+
+    return {
+      ...defaultSeason,
+      ...saved,
+      currentSeason: saved.currentSeason || defaultSeason.currentSeason,
+      cumulativeTaskProgress: saved.cumulativeTaskProgress || defaultSeason.cumulativeTaskProgress,
+      weeklyTaskProgress: saved.weeklyTaskProgress || defaultSeason.weeklyTaskProgress,
+      claimedRewards: saved.claimedRewards || [],
+      newlyCompletedTasks: saved.newlyCompletedTasks || [],
+      newlyClaimableTasks: saved.newlyClaimableTasks || [],
+      lifetimeStats: {
+        ...defaultSeason.lifetimeStats,
+        ...(saved.lifetimeStats || {})
+      }
+    };
+  }
+
+  saveSeasonData(data: Partial<SeasonData>): void {
+    const current = this.getSeasonData();
+    const updated: SeasonData = {
+      ...current,
+      ...data,
+      cumulativeTaskProgress: data.cumulativeTaskProgress || current.cumulativeTaskProgress,
+      weeklyTaskProgress: data.weeklyTaskProgress || current.weeklyTaskProgress,
+      lifetimeStats: {
+        ...current.lifetimeStats,
+        ...(data.lifetimeStats || {})
+      }
+    };
+    this.saveGameData({ season: updated });
+  }
+
+  checkSeasonAndWeeklyReset(): { seasonChanged: boolean; weeklyReset: boolean } {
+    const currentSeason = getCurrentSeason();
+    const seasonData = this.getSeasonData();
+    const now = Date.now();
+    let seasonChanged = false;
+    let weeklyReset = false;
+
+    if (seasonData.currentSeason.id !== currentSeason.id) {
+      const completedTasks = [
+        ...seasonData.cumulativeTaskProgress,
+        ...seasonData.weeklyTaskProgress
+      ].filter(p => p.isCompleted).length;
+
+      const newLifetimeStats = {
+        totalSeasonsCompleted: seasonData.lifetimeStats.totalSeasonsCompleted + 1,
+        totalSeasonPointsEarned: seasonData.lifetimeStats.totalSeasonPointsEarned + seasonData.totalSeasonPoints,
+        totalTasksCompleted: seasonData.lifetimeStats.totalTasksCompleted + completedTasks,
+        weeklyBestCompletionRate: seasonData.lifetimeStats.weeklyBestCompletionRate
+      };
+
+      const newSeasonData = this.getDefaultSeasonData();
+      newSeasonData.lifetimeStats = newLifetimeStats;
+      this.saveGameData({ season: newSeasonData });
+      seasonChanged = true;
+    } else if (seasonData.weeklyResetTimestamp <= now) {
+      const weeklyTasks = seasonData.weeklyTaskProgress;
+      const completedCount = weeklyTasks.filter(t => t.isCompleted).length;
+      const completionRate = weeklyTasks.length > 0 ? completedCount / weeklyTasks.length : 0;
+      const bestRate = Math.max(seasonData.lifetimeStats.weeklyBestCompletionRate, completionRate);
+
+      const newWeeklyTaskDefs = pickWeeklyTasks(currentSeason.startDate + Math.floor(now / (7 * 24 * 60 * 60 * 1000)));
+      const newWeeklyProgress: SeasonTaskProgress[] = newWeeklyTaskDefs.map(t => ({
+        taskId: t.id,
+        currentValue: 0,
+        targetValue: t.targetValue,
+        isCompleted: false,
+        isClaimed: false,
+        updatedAt: now
+      }));
+
+      this.saveSeasonData({
+        weeklyResetTimestamp: this.getNextWeeklyReset(),
+        weeklyTaskProgress: newWeeklyProgress,
+        lifetimeStats: {
+          ...seasonData.lifetimeStats,
+          weeklyBestCompletionRate: bestRate
+        }
+      });
+      weeklyReset = true;
+    }
+
+    return { seasonChanged, weeklyReset };
   }
 }
 

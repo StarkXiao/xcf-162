@@ -4,6 +4,7 @@ import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
+import { SeasonManager } from '../utils/SeasonManager';
 
 export class MenuScene extends Phaser.Scene {
   private saveManager!: SaveManager;
@@ -167,7 +168,14 @@ export class MenuScene extends Phaser.Scene {
     const achTotal = achievementManager.getTotalCount();
     const hasNewAchievements = achievementManager.getNewlyUnlocked().length > 0;
 
-    const achievementBtn = this.add.text(GameConfig.width / 2, 590, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
+    const seasonManager = SeasonManager.getInstance();
+    seasonManager.checkReset();
+    const seasonCompleted = seasonManager.getCompletedCount();
+    const seasonTotal = seasonManager.getTotalTaskCount();
+    const hasNewSeason = seasonManager.hasClaimableRewards();
+    const seasonLevelData = seasonManager.getLevelProgress();
+
+    const achievementBtn = this.add.text(GameConfig.width / 2, 570, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
       fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ffaa00',
@@ -199,13 +207,50 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('AchievementScene');
     });
 
-    this.add.text(GameConfig.width / 2, 620, `成就解锁: ${achUnlocked}/${achTotal}`, {
-      fontSize: '12px',
+    this.add.text(GameConfig.width / 2, 598, `成就解锁: ${achUnlocked}/${achTotal}`, {
+      fontSize: '11px',
       color: '#ffcc66'
     }).setOrigin(0.5);
 
-    const archiveBtn = this.add.text(GameConfig.width / 2, 642, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
-      fontSize: '18px',
+    const seasonBtn = this.add.text(GameConfig.width / 2, 620, `🏅 赛季任务 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
+      fontSize: '19px',
+      color: '#ffffff',
+      backgroundColor: '#00ccaa',
+      padding: { left: 28, right: 28, top: 7, bottom: 7 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    if (hasNewSeason) {
+      this.tweens.add({
+        targets: seasonBtn,
+        scale: { from: 1, to: 1.04 },
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    seasonBtn.on('pointerover', () => {
+      seasonBtn.setBackgroundColor('#00eecc');
+      this.audioManager.play('hover');
+    });
+
+    seasonBtn.on('pointerout', () => {
+      seasonBtn.setBackgroundColor('#00ccaa');
+    });
+
+    seasonBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('SeasonScene');
+    });
+
+    this.add.text(GameConfig.width / 2, 645, `任务完成: ${seasonCompleted}/${seasonTotal} (${seasonManager.getProgressPercent()}%)`, {
+      fontSize: '11px',
+      color: '#66ffcc'
+    }).setOrigin(0.5);
+
+    const archiveBtn = this.add.text(GameConfig.width / 2, 667, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
+      fontSize: '17px',
       color: '#ffffff',
       backgroundColor: '#aa66ff',
       padding: { left: 25, right: 25, top: 7, bottom: 7 }
@@ -236,29 +281,29 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
-    this.add.text(GameConfig.width / 2, 668, `档案解锁: ${totalUnlocked}/${totalCount}`, {
+    this.add.text(GameConfig.width / 2, 691, `档案解锁: ${totalUnlocked}/${totalCount}`, {
       fontSize: '11px',
       color: '#cc99ff'
     }).setOrigin(0.5);
 
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 686, `生存最高分: ${saveData.highScore}`, {
-      fontSize: '12px',
+    this.add.text(GameConfig.width / 2, 708, `生存最高分: ${saveData.highScore}`, {
+      fontSize: '11px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 701, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
-      fontSize: '12px',
+    this.add.text(GameConfig.width / 2, 722, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
+      fontSize: '11px',
       color: '#ff66ff'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 715, `总药片: ${saveData.totalPills} | 游戏: ${saveData.gamesPlayed}`, {
-      fontSize: '11px',
+    this.add.text(GameConfig.width / 2, 735, `总药片: ${saveData.totalPills} | 游戏: ${saveData.gamesPlayed}`, {
+      fontSize: '10px',
       color: '#00ff88'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 730, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
-      fontSize: '11px',
+    this.add.text(GameConfig.width / 2, 747, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+      fontSize: '10px',
       color: '#666666'
     }).setOrigin(0.5);
 

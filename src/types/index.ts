@@ -369,6 +369,86 @@ export interface DualCharacterState {
   totalSwitches: number;
 }
 
+export enum SeasonTaskType {
+  SCORE = 'score',
+  FLOOR = 'floor',
+  PILLS = 'pills',
+  COMBO = 'combo',
+  NODAMAGE = 'nodamage',
+  GAMES_PLAYED = 'games_played',
+  ADDICTION = 'addiction',
+  HALLUCINATIONS = 'hallucinations',
+  ENDLESS_SCORE = 'endless_score',
+  ENDLESS_FLOOR = 'endless_floor',
+  TRAINING_SCORE = 'training_score',
+  GUARD_HITS = 'guard_hits',
+  DAY_CYCLES = 'day_cycles',
+  EVENTS = 'events'
+}
+
+export enum SeasonRewardType {
+  SEASON_POINTS = 'season_points',
+  PILLS_BONUS = 'pills_bonus',
+  TITLE = 'title',
+  BADGE = 'badge'
+}
+
+export interface SeasonReward {
+  type: SeasonRewardType;
+  value: number | string;
+  label: string;
+  icon: string;
+}
+
+export interface SeasonTask {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: SeasonTaskType;
+  targetValue: number;
+  rewards: SeasonReward[];
+  isWeekly: boolean;
+  isCumulative: boolean;
+}
+
+export interface SeasonTaskProgress {
+  taskId: string;
+  currentValue: number;
+  targetValue: number;
+  isCompleted: boolean;
+  isClaimed: boolean;
+  updatedAt: number;
+}
+
+export interface SeasonInfo {
+  id: string;
+  name: string;
+  description: string;
+  startDate: number;
+  endDate: number;
+  icon: string;
+}
+
+export interface SeasonData {
+  currentSeason: SeasonInfo;
+  weeklyResetTimestamp: number;
+  totalSeasonPoints: number;
+  cumulativeTaskProgress: SeasonTaskProgress[];
+  weeklyTaskProgress: SeasonTaskProgress[];
+  claimedRewards: string[];
+  newlyCompletedTasks: string[];
+  newlyClaimableTasks: string[];
+  seasonLevel: number;
+  seasonExp: number;
+  lifetimeStats: {
+    totalSeasonsCompleted: number;
+    totalSeasonPointsEarned: number;
+    totalTasksCompleted: number;
+    weeklyBestCompletionRate: number;
+  };
+}
+
 export interface SaveData {
   highScore: number;
   totalPills: number;
@@ -394,5 +474,6 @@ export interface SaveData {
   totalPillsSpentInShop: number;
   archive: ArchiveData;
   achievements: AchievementData;
+  season: SeasonData;
 }
 

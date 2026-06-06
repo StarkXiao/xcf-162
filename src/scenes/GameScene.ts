@@ -11,7 +11,8 @@ import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
-import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats } from '../types';
+import { SeasonManager } from '../utils/SeasonManager';
+import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats, SeasonTaskType } from '../types';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -32,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   private audioManager!: AudioManager;
   private saveManager!: SaveManager;
   private achievementManager!: AchievementManager;
+  private seasonManager!: SeasonManager;
   private isGameOver: boolean = false;
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
   private timeManager!: TimeManager;
@@ -66,6 +68,8 @@ export class GameScene extends Phaser.Scene {
     this.audioManager = AudioManager.getInstance();
     this.saveManager = SaveManager.getInstance();
     this.achievementManager = AchievementManager.getInstance();
+    this.seasonManager = SeasonManager.getInstance();
+    this.seasonManager.checkReset();
     this.achievementManager.resetInGameStats();
     this.isGameOver = false;
     this.score = 0;
@@ -423,8 +427,11 @@ export class GameScene extends Phaser.Scene {
       delay: 1000,
       callback: () => {
         const scoreMultiplier = this.floorEventManager.getEventEffect('score');
-        this.score += Math.floor(GameConfig.survivalScoreRate * scoreMultiplier);
+        const gained = Math.floor(GameConfig.survivalScoreRate * scoreMultiplier);
+        this.score += gained;
         this.hud.updateScore(this.score);
+        this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, gained);
+        this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.score);
       },
       callbackScope: this,
       loop: true
@@ -543,8 +550,10 @@ export class GameScene extends Phaser.Scene {
 
     const currentCycles = this.timeManager.getCycleCount();
     if (currentCycles > this.previousCycleCount) {
-      this.saveManager.addDayCycles(currentCycles - this.previousCycleCount);
+      const delta = currentCycles - this.previousCycleCount;
+      this.saveManager.addDayCycles(delta);
       this.previousCycleCount = currentCycles;
+      this.seasonManager.updateTaskProgress(SeasonTaskType.DAY_CYCLES, delta);
     }
   }
 
@@ -557,8 +566,10 @@ export class GameScene extends Phaser.Scene {
 
     const currentEvents = this.floorEventManager.getEventsTriggeredCount();
     if (currentEvents > this.previousEventsTriggered) {
-      this.saveManager.addEventsTriggered(currentEvents - this.previousEventsTriggered);
+      const delta = currentEvents - this.previousEventsTriggered;
+      this.saveManager.addEventsTriggered(delta);
       this.previousEventsTriggered = currentEvents;
+      this.seasonManager.updateTaskProgress(SeasonTaskType.EVENTS, delta);
     }
   }
 
@@ -651,12 +662,17 @@ export class GameScene extends Phaser.Scene {
       this.achievementManager.updateInGameStat('floor', this.currentFloor, true);
       this.achievementManager.updateInGameStat('maxNoDamageFloors', this.maxNoDamageFloorsInGame, true);
 
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.FLOOR, this.currentFloor);
+      this.seasonManager.updateSingleGameMax(SeasonTaskType.NODAMAGE, this.maxNoDamageFloorsInGame);
+
       const bonus = GameConfig.noDamageFloorBaseBonus + (this.noDamageFloorStreak - 1) * GameConfig.noDamageFloorBonusPerFloor;
       const scoreMultiplier = this.floorEventManager.getEventEffect('score');
       const finalBonus = Math.floor(bonus * scoreMultiplier);
       this.score += finalBonus;
       this.hud.updateScore(this.score);
       this.hud.showNoDamageBonus(finalBonus, this.noDamageFloorStreak);
+
+      this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, finalBonus);
     }
 
     if (this.currentCombo > 0) {
@@ -684,6 +700,10 @@ export class GameScene extends Phaser.Scene {
     this.achievementManager.addInGameStat('doubleJumps', 1);
     this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
     this.achievementManager.updateInGameStat('score', this.score, true);
+
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.maxComboInGame);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.score);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, finalBonus);
   }
 
   private resetCombo(): void {
@@ -708,6 +728,10 @@ export class GameScene extends Phaser.Scene {
 
     this.achievementManager.updateInGameStat('pills', this.pillsCollectedTotal, true);
     this.achievementManager.updateInGameStat('score', this.score, true);
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.PILLS, 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, Math.floor(GameConfig.pillScore * scoreMultiplier));
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.score);
   }
 
   private onShopPurchase(itemType: ShopItemType): boolean {
@@ -744,6 +768,8 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     this.achievementManager.addInGameStat('guardHits', 1);
+
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GUARD_HITS, 1);
 
     if (this.player.hasShield) {
       this.player.hasShield = false;
@@ -874,6 +900,16 @@ export class GameScene extends Phaser.Scene {
 
     const archiveManager = ArchiveManager.getInstance();
     archiveManager.checkAllArchives();
+
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.score);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.FLOOR, this.currentFloor);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.COMBO, this.maxComboInGame);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.NODAMAGE, this.maxNoDamageFloorsInGame);
+    this.seasonManager.updateSingleGameMax(SeasonTaskType.ADDICTION, sideEffectStats.maxAddiction);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.HALLUCINATIONS, sideEffectStats.hallucinations);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.GAMES_PLAYED, 1);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.PILLS, 0);
+    this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, 0);
 
     return {
       isNewHighScore,
