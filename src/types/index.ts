@@ -20,6 +20,37 @@ export interface SaveData {
   maxCombo: number;
   maxNoDamageFloors: number;
   totalCombos: number;
+  trainingScores: TrainingScores;
+}
+
+export interface TrainingScores {
+  jumpTraining: JumpTrainingScore;
+  pillTraining: PillTrainingScore;
+  guardTraining: GuardTrainingScore;
+}
+
+export interface JumpTrainingScore {
+  bestCombo: number;
+  totalJumps: number;
+  perfectJumps: number;
+  highestFloor: number;
+  gamesPlayed: number;
+}
+
+export interface PillTrainingScore {
+  pillsCollected: number;
+  pillsPerType: Record<string, number>;
+  bestStreak: number;
+  totalScore: number;
+  gamesPlayed: number;
+}
+
+export interface GuardTrainingScore {
+  guardsAvoided: number;
+  longestSurvival: number;
+  guardsTricked: number;
+  totalScore: number;
+  gamesPlayed: number;
 }
 
 export interface Platform {

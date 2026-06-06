@@ -1,8 +1,32 @@
-import { SaveData, TimeOfDay } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore } from '../types';
 
 export class SaveManager {
   private static instance: SaveManager;
   private readonly STORAGE_KEY: string = 'elevator_survival_save';
+  private defaultTrainingScores: TrainingScores = {
+    jumpTraining: {
+      bestCombo: 0,
+      totalJumps: 0,
+      perfectJumps: 0,
+      highestFloor: 0,
+      gamesPlayed: 0
+    },
+    pillTraining: {
+      pillsCollected: 0,
+      pillsPerType: {},
+      bestStreak: 0,
+      totalScore: 0,
+      gamesPlayed: 0
+    },
+    guardTraining: {
+      guardsAvoided: 0,
+      longestSurvival: 0,
+      guardsTricked: 0,
+      totalScore: 0,
+      gamesPlayed: 0
+    }
+  };
+
   private defaultData: SaveData = {
     highScore: 0,
     totalPills: 0,
@@ -12,7 +36,8 @@ export class SaveManager {
     eventsTriggered: 0,
     maxCombo: 0,
     maxNoDamageFloors: 0,
-    totalCombos: 0
+    totalCombos: 0,
+    trainingScores: this.defaultTrainingScores
   };
 
   private constructor() {
@@ -154,6 +179,75 @@ export class SaveManager {
 
   isNewMaxNoDamageFloors(floors: number): boolean {
     return floors > this.getMaxNoDamageFloors();
+  }
+
+  getTrainingScores(): TrainingScores {
+    const data = this.getSaveData();
+    return {
+      jumpTraining: { ...this.defaultTrainingScores.jumpTraining, ...(data.trainingScores?.jumpTraining || {}) },
+      pillTraining: { ...this.defaultTrainingScores.pillTraining, ...(data.trainingScores?.pillTraining || {}) },
+      guardTraining: { ...this.defaultTrainingScores.guardTraining, ...(data.trainingScores?.guardTraining || {}) }
+    };
+  }
+
+  saveJumpTrainingScore(score: Partial<JumpTrainingScore>): void {
+    const current = this.getTrainingScores();
+    const existing = current.jumpTraining;
+    const updated: JumpTrainingScore = {
+      bestCombo: Math.max(existing.bestCombo, score.bestCombo || 0),
+      totalJumps: existing.totalJumps + (score.totalJumps || 0),
+      perfectJumps: existing.perfectJumps + (score.perfectJumps || 0),
+      highestFloor: Math.max(existing.highestFloor, score.highestFloor || 0),
+      gamesPlayed: existing.gamesPlayed + (score.gamesPlayed || 0)
+    };
+    this.saveGameData({
+      trainingScores: {
+        ...current,
+        jumpTraining: updated
+      }
+    });
+  }
+
+  savePillTrainingScore(score: Partial<PillTrainingScore>): void {
+    const current = this.getTrainingScores();
+    const existing = current.pillTraining;
+    const mergedPillsPerType = { ...existing.pillsPerType };
+    if (score.pillsPerType) {
+      for (const [type, count] of Object.entries(score.pillsPerType)) {
+        mergedPillsPerType[type] = (mergedPillsPerType[type] || 0) + count;
+      }
+    }
+    const updated: PillTrainingScore = {
+      pillsCollected: existing.pillsCollected + (score.pillsCollected || 0),
+      pillsPerType: mergedPillsPerType,
+      bestStreak: Math.max(existing.bestStreak, score.bestStreak || 0),
+      totalScore: existing.totalScore + (score.totalScore || 0),
+      gamesPlayed: existing.gamesPlayed + (score.gamesPlayed || 0)
+    };
+    this.saveGameData({
+      trainingScores: {
+        ...current,
+        pillTraining: updated
+      }
+    });
+  }
+
+  saveGuardTrainingScore(score: Partial<GuardTrainingScore>): void {
+    const current = this.getTrainingScores();
+    const existing = current.guardTraining;
+    const updated: GuardTrainingScore = {
+      guardsAvoided: existing.guardsAvoided + (score.guardsAvoided || 0),
+      longestSurvival: Math.max(existing.longestSurvival, score.longestSurvival || 0),
+      guardsTricked: existing.guardsTricked + (score.guardsTricked || 0),
+      totalScore: existing.totalScore + (score.totalScore || 0),
+      gamesPlayed: existing.gamesPlayed + (score.gamesPlayed || 0)
+    };
+    this.saveGameData({
+      trainingScores: {
+        ...current,
+        guardTraining: updated
+      }
+    });
   }
 }
 

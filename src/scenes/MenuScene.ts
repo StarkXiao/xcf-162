@@ -51,28 +51,49 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('GameScene');
     });
 
+    const trainingBtn = this.add.text(GameConfig.width / 2, 390, '番外训练馆', {
+      fontSize: '26px',
+      color: '#ffffff',
+      backgroundColor: '#00aaff',
+      padding: { left: 35, right: 35, top: 12, bottom: 12 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    trainingBtn.on('pointerover', () => {
+      trainingBtn.setBackgroundColor('#33bbff');
+      this.audioManager.play('hover');
+    });
+
+    trainingBtn.on('pointerout', () => {
+      trainingBtn.setBackgroundColor('#00aaff');
+    });
+
+    trainingBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('TrainingScene');
+    });
+
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 430, `最高分: ${saveData.highScore}`, {
+    this.add.text(GameConfig.width / 2, 470, `最高分: ${saveData.highScore}`, {
       fontSize: '20px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 470, `总药片: ${saveData.totalPills}`, {
+    this.add.text(GameConfig.width / 2, 505, `总药片: ${saveData.totalPills}`, {
       fontSize: '16px',
       color: '#00ff88'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 500, `游戏次数: ${saveData.gamesPlayed}`, {
+    this.add.text(GameConfig.width / 2, 535, `游戏次数: ${saveData.gamesPlayed}`, {
       fontSize: '16px',
       color: '#888888'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 580, '← → 移动 | 空格 跳跃', {
+    this.add.text(GameConfig.width / 2, 600, '← → 移动 | 空格 跳跃', {
       fontSize: '18px',
       color: '#666666'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 610, '拾取药片 | 躲避保安', {
+    this.add.text(GameConfig.width / 2, 630, '拾取药片 | 躲避保安', {
       fontSize: '16px',
       color: '#444444'
     }).setOrigin(0.5);

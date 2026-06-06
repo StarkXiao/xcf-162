@@ -3,6 +3,10 @@ import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { TrainingScene } from './scenes/TrainingScene';
+import { JumpTrainingScene } from './scenes/JumpTrainingScene';
+import { PillTrainingScene } from './scenes/PillTrainingScene';
+import { GuardTrainingScene } from './scenes/GuardTrainingScene';
 import { GameConfig } from './config/GameConfig';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -24,7 +28,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: GameConfig.width,
     height: GameConfig.height
   },
-  scene: [BootScene, MenuScene, GameScene, GameOverScene]
+  scene: [BootScene, MenuScene, GameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene]
 };
 
 new Phaser.Game(config);
