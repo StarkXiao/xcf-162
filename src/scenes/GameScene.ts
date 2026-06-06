@@ -8,6 +8,7 @@ import { AudioManager } from '../audio/AudioManager';
 import { TimeManager } from '../utils/TimeManager';
 import { FloorEventManager } from '../utils/FloorEventManager';
 import { SaveManager } from '../utils/SaveManager';
+import { ArchiveManager } from '../utils/ArchiveManager';
 import { TimeOfDay, FloorEvent } from '../types';
 
 export class GameScene extends Phaser.Scene {
@@ -512,6 +513,9 @@ export class GameScene extends Phaser.Scene {
       totalLossOfControl: sideEffectStats.lossOfControl,
       gamesPlayed: 1
     });
+
+    const archiveManager = ArchiveManager.getInstance();
+    archiveManager.checkAllArchives();
 
     return {
       isNewHighScore,

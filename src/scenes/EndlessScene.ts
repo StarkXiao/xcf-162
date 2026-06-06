@@ -6,6 +6,7 @@ import { PillManager } from '../items/PillManager';
 import { EndlessHUD } from '../ui/EndlessHUD';
 import { AudioManager } from '../audio/AudioManager';
 import { SaveManager } from '../utils/SaveManager';
+import { ArchiveManager } from '../utils/ArchiveManager';
 
 export class EndlessScene extends Phaser.Scene {
   private player!: Player;
@@ -493,6 +494,9 @@ export class EndlessScene extends Phaser.Scene {
       hallucinations: sideEffectStats.hallucinations,
       lossOfControl: sideEffectStats.lossOfControl
     });
+
+    const archiveManager = ArchiveManager.getInstance();
+    archiveManager.checkAllArchives();
 
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');

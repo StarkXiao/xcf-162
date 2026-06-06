@@ -1,4 +1,4 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition } from '../types';
 import { GameConfig } from '../config/GameConfig';
 
 export class SaveManager {
@@ -50,7 +50,13 @@ export class SaveManager {
     totalAddictionLevel: 0,
     maxAddictionReached: 0,
     totalHallucinationsTriggered: 0,
-    totalLossOfControlTriggered: 0
+    totalLossOfControlTriggered: 0,
+    archive: {
+      unlockedCharacters: [],
+      unlockedRumors: [],
+      unlockedHiddenFloors: [],
+      newlyUnlocked: []
+    }
   };
 
   private constructor() {
@@ -341,6 +347,100 @@ export class SaveManager {
         pillTraining: updated
       }
     });
+  }
+
+  getArchiveData(): ArchiveData {
+    const data = this.getSaveData();
+    const defaultArchive: ArchiveData = {
+      unlockedCharacters: [],
+      unlockedRumors: [],
+      unlockedHiddenFloors: [],
+      newlyUnlocked: []
+    };
+    return { ...defaultArchive, ...(data.archive || {}) };
+  }
+
+  isConditionMet(condition: ArchiveUnlockCondition): boolean {
+    const data = this.getSaveData();
+    switch (condition.type) {
+      case 'gamesPlayed':
+        return data.gamesPlayed >= condition.value;
+      case 'highScore':
+        return data.highScore >= condition.value;
+      case 'totalPills':
+        return data.totalPills >= condition.value;
+      case 'floorReached':
+        return data.maxNoDamageFloors >= condition.value;
+      case 'endlessFloor':
+        return data.endlessBestFloor >= condition.value;
+      case 'endlessScore':
+        return data.endlessBestScore >= condition.value;
+      case 'eventsTriggered':
+        return data.eventsTriggered >= condition.value;
+      case 'maxCombo':
+        return data.maxCombo >= condition.value;
+      case 'hallucinations':
+        return data.totalHallucinationsTriggered >= condition.value;
+      case 'addiction':
+        return data.maxAddictionReached >= condition.value;
+      case 'trainingScore':
+        const training = this.getTrainingScores();
+        const totalTrainingScore = (training.pillTraining.totalScore || 0) + (training.guardTraining.totalScore || 0) + training.jumpTraining.bestCombo * 100;
+        return totalTrainingScore >= condition.value;
+      case 'dayCycles':
+        return data.totalDayCycles >= condition.value;
+      default:
+        return false;
+    }
+  }
+
+  unlockCharacter(id: string): boolean {
+    const archive = this.getArchiveData();
+    if (archive.unlockedCharacters.includes(id)) return false;
+    archive.unlockedCharacters.push(id);
+    archive.newlyUnlocked.push(`char:${id}`);
+    this.saveGameData({ archive });
+    return true;
+  }
+
+  unlockRumor(id: string): boolean {
+    const archive = this.getArchiveData();
+    if (archive.unlockedRumors.includes(id)) return false;
+    archive.unlockedRumors.push(id);
+    archive.newlyUnlocked.push(`rumor:${id}`);
+    this.saveGameData({ archive });
+    return true;
+  }
+
+  unlockHiddenFloor(id: string): boolean {
+    const archive = this.getArchiveData();
+    if (archive.unlockedHiddenFloors.includes(id)) return false;
+    archive.unlockedHiddenFloors.push(id);
+    archive.newlyUnlocked.push(`floor:${id}`);
+    this.saveGameData({ archive });
+    return true;
+  }
+
+  isCharacterUnlocked(id: string): boolean {
+    return this.getArchiveData().unlockedCharacters.includes(id);
+  }
+
+  isRumorUnlocked(id: string): boolean {
+    return this.getArchiveData().unlockedRumors.includes(id);
+  }
+
+  isHiddenFloorUnlocked(id: string): boolean {
+    return this.getArchiveData().unlockedHiddenFloors.includes(id);
+  }
+
+  getNewlyUnlocked(): string[] {
+    return this.getArchiveData().newlyUnlocked || [];
+  }
+
+  clearNewlyUnlocked(): void {
+    const archive = this.getArchiveData();
+    archive.newlyUnlocked = [];
+    this.saveGameData({ archive });
   }
 }
 

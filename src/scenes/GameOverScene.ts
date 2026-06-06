@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
+import { ArchiveManager } from '../utils/ArchiveManager';
 
 export class GameOverScene extends Phaser.Scene {
   private audioManager!: AudioManager;
@@ -205,5 +206,51 @@ export class GameOverScene extends Phaser.Scene {
       this.audioManager.play('select');
       this.scene.start('MenuScene');
     });
+
+    this.checkAndShowNewUnlocks();
+  }
+
+  private checkAndShowNewUnlocks(): void {
+    const archiveManager = ArchiveManager.getInstance();
+    const result = archiveManager.checkAllArchives();
+
+    if (result.newlyUnlocked.length > 0) {
+      const names = result.newlyUnlocked.map(u => u.name).join('、');
+      const notifBg = this.add.graphics();
+      notifBg.fillStyle(0x220033, 0.95);
+      notifBg.fillRoundedRect(40, GameConfig.height - 130, GameConfig.width - 80, 70, 10);
+      notifBg.lineStyle(2, 0xffcc00, 0.9);
+      notifBg.strokeRoundedRect(40, GameConfig.height - 130, GameConfig.width - 80, 70, 10);
+      notifBg.setDepth(100);
+
+      const title = this.add.text(
+        GameConfig.width / 2,
+        GameConfig.height - 108,
+        '🎉 新档案解锁！',
+        {
+          fontSize: '16px',
+          color: '#ffcc00',
+          fontStyle: 'bold'
+        }
+      ).setOrigin(0.5).setDepth(101);
+
+      this.add.text(
+        GameConfig.width / 2,
+        GameConfig.height - 80,
+        names,
+        {
+          fontSize: '13px',
+          color: '#ffffff',
+          wordWrap: { width: GameConfig.width - 120 }
+        }
+      ).setOrigin(0.5).setDepth(101);
+
+      this.tweens.add({
+        targets: [notifBg, title],
+        alpha: { from: 0, to: 1 },
+        duration: 600,
+        ease: 'Sine.easeOut'
+      });
+    }
   }
 }

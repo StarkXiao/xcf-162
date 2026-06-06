@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
+import { ArchiveManager } from '../utils/ArchiveManager';
 
 export class MenuScene extends Phaser.Scene {
   private saveManager!: SaveManager;
@@ -102,33 +103,77 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('TrainingScene');
     });
 
+    const archiveManager = ArchiveManager.getInstance();
+    const archiveProgress = archiveManager.getArchiveProgress();
+    const archiveTotal = archiveManager.getTotalArchiveCount();
+    const totalUnlocked = archiveProgress.characters + archiveProgress.rumors + archiveProgress.floors;
+    const totalCount = archiveTotal.characters + archiveTotal.rumors + archiveTotal.floors;
+    const hasNewUnlocks = this.saveManager.getNewlyUnlocked().length > 0;
+
+    const archiveBtn = this.add.text(GameConfig.width / 2, 495, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
+      fontSize: '22px',
+      color: '#ffffff',
+      backgroundColor: '#aa66ff',
+      padding: { left: 30, right: 30, top: 10, bottom: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    if (hasNewUnlocks) {
+      this.tweens.add({
+        targets: archiveBtn,
+        scale: { from: 1, to: 1.04 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    archiveBtn.on('pointerover', () => {
+      archiveBtn.setBackgroundColor('#bb77ff');
+      this.audioManager.play('hover');
+    });
+
+    archiveBtn.on('pointerout', () => {
+      archiveBtn.setBackgroundColor('#aa66ff');
+    });
+
+    archiveBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('ArchiveScene');
+    });
+
+    this.add.text(GameConfig.width / 2, 528, `档案解锁: ${totalUnlocked}/${totalCount}`, {
+      fontSize: '13px',
+      color: '#cc99ff'
+    }).setOrigin(0.5);
+
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 500, `生存最高分: ${saveData.highScore}`, {
+    this.add.text(GameConfig.width / 2, 558, `生存最高分: ${saveData.highScore}`, {
       fontSize: '18px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 528, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
+    this.add.text(GameConfig.width / 2, 586, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
       fontSize: '18px',
       color: '#ff66ff'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 558, `总药片: ${saveData.totalPills}`, {
+    this.add.text(GameConfig.width / 2, 616, `总药片: ${saveData.totalPills}`, {
       fontSize: '15px',
       color: '#00ff88'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 583, `游戏次数: ${saveData.gamesPlayed} | 无尽: ${this.saveManager.getEndlessGamesPlayed()}`, {
+    this.add.text(GameConfig.width / 2, 641, `游戏次数: ${saveData.gamesPlayed} | 无尽: ${this.saveManager.getEndlessGamesPlayed()}`, {
       fontSize: '14px',
       color: '#888888'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 635, '← → 移动 | 空格 跳跃', {
+    this.add.text(GameConfig.width / 2, 685, '← → 移动 | 空格 跳跃', {
       fontSize: '18px',
       color: '#666666'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 665, '拾取药片 | 躲避保安', {
+    this.add.text(GameConfig.width / 2, 712, '拾取药片 | 躲避保安', {
       fontSize: '16px',
       color: '#444444'
     }).setOrigin(0.5);
