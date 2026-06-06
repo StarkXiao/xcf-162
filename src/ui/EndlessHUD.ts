@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { GameConfig, PillType, PillColors } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
-import { Player } from '../characters/Player';
 
 export class EndlessHUD {
   private scene: Phaser.Scene;
@@ -303,12 +302,6 @@ export class EndlessHUD {
 
     if (type === PillType.SHIELD) {
       this.showShield();
-    }
-
-    const player = this.scene.children.list.find(c => c instanceof Player) as Player;
-    if (player && type === PillType.SCORE) {
-      const currentScore = parseInt(this.scoreText.text);
-      this.updateScore(currentScore + 500);
     }
   }
 

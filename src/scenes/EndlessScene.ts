@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType } from '../config/GameConfig';
+import { GameConfig, PillType, PillEffects } from '../config/GameConfig';
 import { Player } from '../characters/Player';
 import { Guard } from '../enemies/Guard';
 import { PillManager } from '../items/PillManager';
@@ -361,8 +361,11 @@ export class EndlessScene extends Phaser.Scene {
     this.pillManager.collectPill(pillObj);
     this.pillCount++;
 
-    const basePillScore = GameConfig.pillScore;
-    this.rawScore += basePillScore;
+    let pillScore = GameConfig.pillScore;
+    if (pillType === PillType.SCORE) {
+      pillScore += PillEffects[PillType.SCORE].value;
+    }
+    this.rawScore += pillScore;
 
     this.hud.updatePills(this.pillCount);
     this.hud.updateScore(this.getFinalScore());
