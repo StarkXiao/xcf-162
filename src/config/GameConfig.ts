@@ -1,4 +1,4 @@
-import { TimeOfDay, TimeOfDayConfig, FloorEventType, PlatformTrapType, PlatformTrapConfig, ShopItemType, ShopItemConfig } from '../types';
+import { TimeOfDay, TimeOfDayConfig, FloorEventType, PlatformTrapType, PlatformTrapConfig, ShopItemType, ShopItemConfig, CharacterType, CharacterConfig } from '../types';
 
 export enum GuardChaseState {
   PATROL = 'patrol',
@@ -115,7 +115,50 @@ export class GameConfig {
   ];
 
   static readonly shopEmergencyBounceForce: number = -700;
+
+  static readonly dualCharacterSwitchCooldownMs: number = 1500;
 }
+
+export const CharacterConfigs: Record<CharacterType, CharacterConfig> = {
+  [CharacterType.SWIFT]: {
+    type: CharacterType.SWIFT,
+    name: '疾风',
+    icon: '⚡',
+    color: 0x00ffff,
+    accentColor: 0x00aaff,
+    description: '敏捷型：跳得高、跑得快、速度药片加成',
+    jumpForce: -520,
+    maxJumps: 2,
+    speedMultiplier: 1.3,
+    pillEffects: {
+      speed: 1.8,
+      slow: 1.0,
+      score: 1.2,
+      shield: 0.8
+    },
+    addictionMultiplier: 1.2,
+    gravityScale: 0.9
+  },
+  [CharacterType.TANK]: {
+    type: CharacterType.TANK,
+    name: '重甲',
+    icon: '🛡',
+    color: 0xff6600,
+    accentColor: 0xff3300,
+    description: '稳健型：三连跳、护盾药片加成、成瘾慢',
+    jumpForce: -420,
+    maxJumps: 3,
+    speedMultiplier: 0.9,
+    pillEffects: {
+      speed: 0.9,
+      slow: 1.3,
+      score: 1.0,
+      shield: 1.8
+    },
+    addictionMultiplier: 0.7,
+    gravityScale: 1.1
+  }
+};
 
 export const ShopItemConfigs: Record<ShopItemType, ShopItemConfig> = {
   [ShopItemType.SHIELD]: {

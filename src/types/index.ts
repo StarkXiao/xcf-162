@@ -334,6 +334,41 @@ export interface AchievementData {
   };
 }
 
+export enum CharacterType {
+  SWIFT = 'swift',
+  TANK = 'tank'
+}
+
+export interface CharacterConfig {
+  type: CharacterType;
+  name: string;
+  icon: string;
+  color: number;
+  accentColor: number;
+  description: string;
+  jumpForce: number;
+  maxJumps: number;
+  speedMultiplier: number;
+  pillEffects: Record<string, number>;
+  addictionMultiplier: number;
+  gravityScale: number;
+}
+
+export interface DualCharacterState {
+  activeCharacter: CharacterType;
+  swift: {
+    pills: number;
+    activeEffects: string[];
+  };
+  tank: {
+    pills: number;
+    activeEffects: string[];
+  };
+  switchCooldownMs: number;
+  lastSwitchTime: number;
+  totalSwitches: number;
+}
+
 export interface SaveData {
   highScore: number;
   totalPills: number;

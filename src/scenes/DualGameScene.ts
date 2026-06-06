@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, TimeOfDayConfigs, ShopItemConfigs } from '../config/GameConfig';
+import { GameConfig, PillType, TimeOfDayConfigs, ShopItemConfigs, CharacterConfigs } from '../config/GameConfig';
 import { Player } from '../characters/Player';
 import { Guard } from '../enemies/Guard';
 import { PillManager } from '../items/PillManager';
@@ -11,9 +11,9 @@ import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
-import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats } from '../types';
+import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats, CharacterType, DualCharacterState } from '../types';
 
-export class GameScene extends Phaser.Scene {
+export class DualGameScene extends Phaser.Scene {
   private player!: Player;
   private guards: Guard[] = [];
   private pillManager!: PillManager;
@@ -33,7 +33,7 @@ export class GameScene extends Phaser.Scene {
   private saveManager!: SaveManager;
   private achievementManager!: AchievementManager;
   private isGameOver: boolean = false;
-  private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
+  private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key; switch: Phaser.Input.Keyboard.Key };
   private timeManager!: TimeManager;
   private floorEventManager!: FloorEventManager;
   private platformTrapManager!: PlatformTrapManager;
@@ -58,8 +58,16 @@ export class GameScene extends Phaser.Scene {
   private challengeStartTime: number = 0;
   private challengeHudText!: Phaser.GameObjects.Text;
 
+  private dualState!: DualCharacterState;
+  private characterDisplayText!: Phaser.GameObjects.Text;
+  private characterDisplayIcon!: Phaser.GameObjects.Text;
+  private characterSwitchCooldownBar!: Phaser.GameObjects.Graphics;
+  private characterSwitchCooldownBarBg!: Phaser.GameObjects.Graphics;
+  private switchEffect!: Phaser.GameObjects.Graphics;
+  private scoreMultiplierFromPill: number = 1;
+
   constructor() {
-    super('GameScene');
+    super('DualGameScene');
   }
 
   create(data?: { challengeConfig?: ChallengeConfig }): void {
@@ -88,6 +96,16 @@ export class GameScene extends Phaser.Scene {
       emergencyBouncesPurchased: 0,
       totalPillsSpent: 0
     };
+    this.scoreMultiplierFromPill = 1;
+
+    this.dualState = {
+      activeCharacter: CharacterType.SWIFT,
+      swift: { pills: 0, activeEffects: [] },
+      tank: { pills: 0, activeEffects: [] },
+      switchCooldownMs: GameConfig.dualCharacterSwitchCooldownMs,
+      lastSwitchTime: 0,
+      totalSwitches: 0
+    };
 
     if (data?.challengeConfig) {
       this.challengeConfig = data.challengeConfig;
@@ -103,7 +121,8 @@ export class GameScene extends Phaser.Scene {
     this.keys = {
       left: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
       right: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      jump: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+      jump: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      switch: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT)
     };
 
     this.createPlatforms();
@@ -113,7 +132,7 @@ export class GameScene extends Phaser.Scene {
     const startX = firstPlatform.body!.position.x + GameConfig.platformWidth / 2;
     const startY = firstPlatform.body!.position.y - GameConfig.playerHeight;
 
-    this.player = new Player(this, startX, startY);
+    this.player = new Player(this, startX, startY, CharacterType.SWIFT);
 
     if (this.isChallengeMode && !this.challengeConfig?.enableSideEffects) {
       (this.player as any).disableSideEffects?.();
@@ -135,7 +154,11 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateNoDamageFloors(0);
     this.hud.setShopPurchaseCallback((itemType: ShopItemType) => this.onShopPurchase(itemType));
 
+    this.createCharacterHUD();
+
     this.events.on('playerDoubleJump', this.onPlayerDoubleJump, this);
+    this.events.on('characterSwitched', this.onCharacterSwitched, this);
+    this.events.on('scoreMultiplierApplied', this.onScoreMultiplierApplied, this);
 
     this.setupCollisions();
     this.setupTimers();
@@ -151,6 +174,124 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.audioManager.playMusic();
+  }
+
+  private createCharacterHUD(): void {
+    const scrollY = this.cameras.main.scrollY;
+
+    const charConfig = CharacterConfigs[this.dualState.activeCharacter];
+
+    this.characterDisplayIcon = this.add.text(GameConfig.width - 40, 80 + scrollY, charConfig.icon, {
+      fontSize: '26px'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+
+    this.characterDisplayText = this.add.text(GameConfig.width - 40, 108 + scrollY, charConfig.name, {
+      fontSize: '12px',
+      color: `#${charConfig.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+
+    this.characterSwitchCooldownBarBg = this.add.graphics().setScrollFactor(0).setDepth(101);
+    this.characterSwitchCooldownBar = this.add.graphics().setScrollFactor(0).setDepth(101);
+    this.updateCharacterHUD();
+
+    this.switchEffect = this.add.graphics().setScrollFactor(0).setDepth(150);
+    this.switchEffect.setVisible(false);
+  }
+
+  private updateCharacterHUD(): void {
+    const charConfig = CharacterConfigs[this.dualState.activeCharacter];
+    this.characterDisplayIcon.setText(charConfig.icon);
+    this.characterDisplayText.setText(charConfig.name);
+    this.characterDisplayText.setColor(`#${charConfig.color.toString(16).padStart(6, '0')}`);
+
+    const scrollY = this.cameras.main.scrollY;
+    const barX = GameConfig.width - 70;
+    const barY = 122 + scrollY;
+    const barWidth = 60;
+    const barHeight = 4;
+
+    this.characterSwitchCooldownBarBg.clear();
+    this.characterSwitchCooldownBarBg.fillStyle(0x333333, 0.8);
+    this.characterSwitchCooldownBarBg.fillRect(barX, barY, barWidth, barHeight);
+
+    const timeSinceSwitch = this.time.now - this.dualState.lastSwitchTime;
+    const cooldownProgress = Math.min(1, timeSinceSwitch / this.dualState.switchCooldownMs);
+
+    this.characterSwitchCooldownBar.clear();
+    if (cooldownProgress >= 1) {
+      this.characterSwitchCooldownBar.fillStyle(charConfig.color, 1);
+    } else {
+      this.characterSwitchCooldownBar.fillStyle(0x666666, 1);
+    }
+    this.characterSwitchCooldownBar.fillRect(barX, barY, barWidth * cooldownProgress, barHeight);
+  }
+
+  private onCharacterSwitched(newType: CharacterType): void {
+    this.dualState.activeCharacter = newType;
+    this.dualState.totalSwitches++;
+    this.updateCharacterHUD();
+    this.playSwitchEffect();
+    this.audioManager.play('jump');
+  }
+
+  private onScoreMultiplierApplied(multiplier: number): void {
+    this.scoreMultiplierFromPill = multiplier;
+  }
+
+  private playSwitchEffect(): void {
+    const charConfig = CharacterConfigs[this.dualState.activeCharacter];
+    this.switchEffect.setVisible(true);
+    this.switchEffect.clear();
+
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const x = this.player.x + Math.cos(angle) * 30;
+      const y = this.player.y + Math.sin(angle) * 30;
+      this.switchEffect.fillStyle(charConfig.color, 1);
+      this.switchEffect.fillCircle(x, y, 5);
+    }
+
+    this.tweens.add({
+      targets: this.switchEffect,
+      alpha: 0,
+      scale: 2,
+      duration: 400,
+      onComplete: () => {
+        this.switchEffect.setVisible(false);
+        this.switchEffect.setAlpha(1);
+        this.switchEffect.setScale(1);
+      }
+    });
+
+    this.cameras.main.flash(150, charConfig.color >> 16 & 0xff, charConfig.color >> 8 & 0xff, charConfig.color & 0xff);
+  }
+
+  private trySwitchCharacter(): void {
+    const timeSinceSwitch = this.time.now - this.dualState.lastSwitchTime;
+    if (timeSinceSwitch < this.dualState.switchCooldownMs) return;
+    if (this.player.getIsGrounded()) return;
+
+    this.dualState.lastSwitchTime = this.time.now;
+
+    const currentJumpCount = this.player.getJumpCount();
+    const currentVelX = this.player.body!.velocity.x;
+    const currentVelY = this.player.body!.velocity.y;
+    const currentX = this.player.x;
+    const currentY = this.player.y;
+    const hasShield = this.player.hasShield;
+
+    const newType = this.dualState.activeCharacter === CharacterType.SWIFT
+      ? CharacterType.TANK
+      : CharacterType.SWIFT;
+
+    this.player.switchCharacter(newType);
+
+    this.player.setPosition(currentX, currentY);
+    this.player.setVelocityX(currentVelX);
+    this.player.setVelocityY(currentVelY);
+    this.player.setJumpCount(Math.min(currentJumpCount + 1, CharacterConfigs[newType].maxJumps));
+    this.player.hasShield = hasShield;
   }
 
   private createChallengeHud(): void {
@@ -245,6 +386,8 @@ export class GameScene extends Phaser.Scene {
     if (this.comboCheckTimer) this.comboCheckTimer.destroy();
 
     this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
+    this.events.off('characterSwitched', this.onCharacterSwitched, this);
+    this.events.off('scoreMultiplierApplied', this.onScoreMultiplierApplied, this);
     this.timeManager?.pause?.();
     this.saveGameState();
     this.audioManager.stopMusic();
@@ -255,7 +398,7 @@ export class GameScene extends Phaser.Scene {
 
     const panel = this.add.graphics().setDepth(201);
     const pw = 360;
-    const ph = 300;
+    const ph = 340;
     const px = (GameConfig.width - pw) / 2;
     const py = (GameConfig.height - ph) / 2;
     panel.fillStyle(0x151535, 1);
@@ -280,7 +423,8 @@ export class GameScene extends Phaser.Scene {
       { label: '最终楼层', value: `${this.currentFloor}F`, color: '#66ccff' },
       { label: '最终得分', value: `${this.score}`, color: '#ffcc00' },
       { label: '收集药片', value: `${this.pillsCollectedTotal}`, color: '#ff66ff' },
-      { label: '最高连击', value: `${this.maxComboInGame}`, color: '#ff9966' }
+      { label: '最高连击', value: `${this.maxComboInGame}`, color: '#ff9966' },
+      { label: '角色切换', value: `${this.dualState.totalSwitches}次`, color: '#00ffff' }
     ];
     stats.forEach((s, i) => {
       this.add.text(px + 30, statY + i * 28, s.label, {
@@ -344,10 +488,6 @@ export class GameScene extends Phaser.Scene {
     this.darkOverlay.clear();
     this.darkOverlay.fillStyle(0x000000, alpha);
     this.darkOverlay.fillRect(0, 0, GameConfig.width, GameConfig.height);
-
-    const gradient = this.add.graphics();
-    gradient.setScrollFactor(0);
-    gradient.setDepth(99);
   }
 
   private createPlatforms(): void {
@@ -699,7 +839,12 @@ export class GameScene extends Phaser.Scene {
     this.pillsCollectedTotal++;
 
     const scoreMultiplier = this.floorEventManager.getEventEffect('score');
-    this.score += Math.floor(GameConfig.pillScore * scoreMultiplier);
+    const pillScore = Math.floor(GameConfig.pillScore * scoreMultiplier * this.scoreMultiplierFromPill);
+    this.score += pillScore;
+
+    if (pillType === PillType.SCORE) {
+      this.scoreMultiplierFromPill = 1;
+    }
 
     this.hud.updatePills(this.pillCount);
     this.hud.updateScore(this.score);
@@ -773,6 +918,8 @@ export class GameScene extends Phaser.Scene {
     if (this.comboCheckTimer) this.comboCheckTimer.destroy();
 
     this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
+    this.events.off('characterSwitched', this.onCharacterSwitched, this);
+    this.events.off('scoreMultiplierApplied', this.onScoreMultiplierApplied, this);
 
     this.timeManager.pause();
 
@@ -799,7 +946,9 @@ export class GameScene extends Phaser.Scene {
         shopShields: this.shopPurchaseStats.shieldsPurchased,
         shopSlowPulses: this.shopPurchaseStats.slowPulsesPurchased,
         shopBounces: this.shopPurchaseStats.emergencyBouncesPurchased,
-        shopPillsSpent: this.shopPurchaseStats.totalPillsSpent
+        shopPillsSpent: this.shopPurchaseStats.totalPillsSpent,
+        isDualMode: true,
+        totalSwitches: this.dualState.totalSwitches
       });
     });
   }
@@ -899,7 +1048,12 @@ export class GameScene extends Phaser.Scene {
       this.updateChallengeHud();
     }
 
+    if (Phaser.Input.Keyboard.JustDown(this.keys.switch)) {
+      this.trySwitchCharacter();
+    }
+
     this.player.update(this.keys, delta);
+    this.updateCharacterHUD();
 
     this.platformTrapManager?.update(delta);
 

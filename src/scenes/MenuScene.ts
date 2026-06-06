@@ -53,11 +53,41 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('GameScene');
     });
 
-    const endlessBtn = this.add.text(GameConfig.width / 2, 365, '⚡ 无尽竞速 ⚡', {
-      fontSize: '28px',
+    const dualBtn = this.add.text(GameConfig.width / 2, 365, '🔄 双角色接力 🔄', {
+      fontSize: '26px',
+      color: '#ffffff',
+      backgroundColor: '#00ccaa',
+      padding: { left: 28, right: 28, top: 12, bottom: 12 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    this.tweens.add({
+      targets: dualBtn,
+      scale: { from: 1, to: 1.02 },
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    dualBtn.on('pointerover', () => {
+      dualBtn.setBackgroundColor('#00eecc');
+      this.audioManager.play('hover');
+    });
+
+    dualBtn.on('pointerout', () => {
+      dualBtn.setBackgroundColor('#00ccaa');
+    });
+
+    dualBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('DualGameScene');
+    });
+
+    const endlessBtn = this.add.text(GameConfig.width / 2, 435, '⚡ 无尽竞速 ⚡', {
+      fontSize: '24px',
       color: '#ffffff',
       backgroundColor: '#9933ff',
-      padding: { left: 30, right: 30, top: 12, bottom: 12 }
+      padding: { left: 30, right: 30, top: 10, bottom: 10 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     this.tweens.add({
@@ -83,8 +113,8 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('EndlessScene');
     });
 
-    const trainingBtn = this.add.text(GameConfig.width / 2, 435, '番外训练馆', {
-      fontSize: '24px',
+    const trainingBtn = this.add.text(GameConfig.width / 2, 495, '番外训练馆', {
+      fontSize: '22px',
       color: '#ffffff',
       backgroundColor: '#00aaff',
       padding: { left: 35, right: 35, top: 10, bottom: 10 }
@@ -104,8 +134,8 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('TrainingScene');
     });
 
-    const challengeBtn = this.add.text(GameConfig.width / 2, 495, '🎮 自定义挑战', {
-      fontSize: '22px',
+    const challengeBtn = this.add.text(GameConfig.width / 2, 545, '🎮 自定义挑战', {
+      fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ff6633',
       padding: { left: 30, right: 30, top: 10, bottom: 10 }
@@ -137,11 +167,11 @@ export class MenuScene extends Phaser.Scene {
     const achTotal = achievementManager.getTotalCount();
     const hasNewAchievements = achievementManager.getNewlyUnlocked().length > 0;
 
-    const achievementBtn = this.add.text(GameConfig.width / 2, 548, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
-      fontSize: '22px',
+    const achievementBtn = this.add.text(GameConfig.width / 2, 590, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
+      fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ffaa00',
-      padding: { left: 30, right: 30, top: 10, bottom: 10 }
+      padding: { left: 30, right: 30, top: 8, bottom: 8 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     if (hasNewAchievements) {
@@ -169,16 +199,16 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('AchievementScene');
     });
 
-    this.add.text(GameConfig.width / 2, 581, `成就解锁: ${achUnlocked}/${achTotal}`, {
-      fontSize: '13px',
+    this.add.text(GameConfig.width / 2, 620, `成就解锁: ${achUnlocked}/${achTotal}`, {
+      fontSize: '12px',
       color: '#ffcc66'
     }).setOrigin(0.5);
 
-    const archiveBtn = this.add.text(GameConfig.width / 2, 610, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
-      fontSize: '20px',
+    const archiveBtn = this.add.text(GameConfig.width / 2, 642, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
+      fontSize: '18px',
       color: '#ffffff',
       backgroundColor: '#aa66ff',
-      padding: { left: 25, right: 25, top: 8, bottom: 8 }
+      padding: { left: 25, right: 25, top: 7, bottom: 7 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     if (hasNewUnlocks) {
@@ -206,29 +236,29 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
-    this.add.text(GameConfig.width / 2, 640, `档案解锁: ${totalUnlocked}/${totalCount}`, {
-      fontSize: '12px',
+    this.add.text(GameConfig.width / 2, 668, `档案解锁: ${totalUnlocked}/${totalCount}`, {
+      fontSize: '11px',
       color: '#cc99ff'
     }).setOrigin(0.5);
 
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 662, `生存最高分: ${saveData.highScore}`, {
-      fontSize: '14px',
+    this.add.text(GameConfig.width / 2, 686, `生存最高分: ${saveData.highScore}`, {
+      fontSize: '12px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 682, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
-      fontSize: '14px',
+    this.add.text(GameConfig.width / 2, 701, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
+      fontSize: '12px',
       color: '#ff66ff'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 700, `总药片: ${saveData.totalPills} | 游戏: ${saveData.gamesPlayed}`, {
-      fontSize: '12px',
+    this.add.text(GameConfig.width / 2, 715, `总药片: ${saveData.totalPills} | 游戏: ${saveData.gamesPlayed}`, {
+      fontSize: '11px',
       color: '#00ff88'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 718, '← → 移动 | 空格 跳跃', {
-      fontSize: '13px',
+    this.add.text(GameConfig.width / 2, 730, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+      fontSize: '11px',
       color: '#666666'
     }).setOrigin(0.5);
 

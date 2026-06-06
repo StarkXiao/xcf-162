@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillEffects, PillSideEffectConfig } from '../config/GameConfig';
-import { PillSideEffectState } from '../types';
+import { GameConfig, PillType, PillEffects, PillSideEffectConfig, CharacterConfigs } from '../config/GameConfig';
+import { PillSideEffectState, CharacterType } from '../types';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private isGrounded: boolean = false;
@@ -10,6 +10,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public speedMultiplier: number = 1;
   public guardSlowMultiplier: number = 1;
   public hasShield: boolean = false;
+  private characterType: CharacterType;
+  private characterJumpForce: number;
+  private characterSpeedMultiplier: number;
+  private pillEffectMultipliers: Record<string, number>;
+  private addictionMultiplier: number;
   private shieldEffect!: Phaser.GameObjects.Graphics;
   private speedTimer!: Phaser.Time.TimerEvent | null;
   private slowTimer!: Phaser.Time.TimerEvent | null;
@@ -22,14 +27,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private visualFlashOverlay!: Phaser.GameObjects.Graphics;
   private sideEffectsEnabled: boolean = true;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'player');
+  constructor(scene: Phaser.Scene, x: number, y: number, characterType: CharacterType = CharacterType.SWIFT) {
+    const textureKey = characterType === CharacterType.SWIFT ? 'player-swift' : 'player-tank';
+    super(scene, x, y, textureKey);
     scene.add.existing(this);
     scene.physics.add.existing(this);
+
+    this.characterType = characterType;
+    const charConfig = CharacterConfigs[characterType];
+    this.maxJumps = charConfig.maxJumps;
+    this.characterJumpForce = charConfig.jumpForce;
+    this.characterSpeedMultiplier = charConfig.speedMultiplier;
+    this.pillEffectMultipliers = { ...charConfig.pillEffects };
+    this.addictionMultiplier = charConfig.addictionMultiplier;
 
     this.setCollideWorldBounds(false);
     this.setBounce(0.1);
     this.setFriction(0.5, 0);
+    this.setGravityY(GameConfig.gravity * (charConfig.gravityScale - 1));
 
     this.sideEffectState = {
       addictionLevel: 0,
@@ -109,9 +124,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   private addAddiction(amount: number): void {
     const oldLevel = this.sideEffectState.addictionLevel;
+    const adjustedAmount = amount * this.addictionMultiplier;
     this.sideEffectState.addictionLevel = Math.min(
       PillSideEffectConfig.MAX_ADDICTION,
-      this.sideEffectState.addictionLevel + amount
+      this.sideEffectState.addictionLevel + adjustedAmount
     );
     this.sideEffectState.pillsConsumedInGame++;
 
@@ -275,7 +291,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(keys: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key }, _delta: number): void {
-    const speed = GameConfig.playerSpeed * this.speedMultiplier;
+    const speed = GameConfig.playerSpeed * this.speedMultiplier * this.characterSpeedMultiplier;
 
     let leftDown = keys.left.isDown;
     let rightDown = keys.right.isDown;
@@ -338,7 +354,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private jump(): void {
-    this.setVelocityY(GameConfig.playerJumpForce);
+    this.setVelocityY(this.characterJumpForce);
     this.isGrounded = false;
     this.scene.tweens.add({
       targets: this,
@@ -392,12 +408,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   applyPillEffect(type: PillType): void {
     const effect = PillEffects[type];
+    const multiplier = this.pillEffectMultipliers[type] || 1;
 
     this.checkSideEffectTriggers(type);
 
     switch (type) {
       case PillType.SPEED:
-        this.speedMultiplier = effect.value;
+        this.speedMultiplier = effect.value * multiplier;
         if (this.speedTimer) this.speedTimer.destroy();
         this.speedTimer = this.scene.time.delayedCall(effect.duration, () => {
           this.speedMultiplier = 1;
@@ -405,7 +422,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         break;
 
       case PillType.SLOW:
-        this.guardSlowMultiplier = effect.value;
+        this.guardSlowMultiplier = 1 - (1 - effect.value) * multiplier;
         if (this.slowTimer) this.slowTimer.destroy();
         this.slowTimer = this.scene.time.delayedCall(effect.duration, () => {
           this.guardSlowMultiplier = 1;
@@ -415,14 +432,50 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       case PillType.SHIELD:
         this.hasShield = true;
         if (this.shieldTimer) this.shieldTimer.destroy();
-        this.shieldTimer = this.scene.time.delayedCall(effect.duration, () => {
+        const shieldDuration = effect.duration * multiplier;
+        this.shieldTimer = this.scene.time.delayedCall(shieldDuration, () => {
           this.hasShield = false;
         });
+        this.scene.events.emit('shieldDurationChanged', shieldDuration);
         break;
 
       case PillType.SCORE:
+        this.scene.events.emit('scoreMultiplierApplied', multiplier);
         break;
     }
+  }
+
+  getCharacterType(): CharacterType {
+    return this.characterType;
+  }
+
+  switchCharacter(newType: CharacterType): void {
+    this.characterType = newType;
+    const charConfig = CharacterConfigs[newType];
+    this.maxJumps = charConfig.maxJumps;
+    this.characterJumpForce = charConfig.jumpForce;
+    this.characterSpeedMultiplier = charConfig.speedMultiplier;
+    this.pillEffectMultipliers = { ...charConfig.pillEffects };
+    this.addictionMultiplier = charConfig.addictionMultiplier;
+
+    const textureKey = newType === CharacterType.SWIFT ? 'player-swift' : 'player-tank';
+    this.setTexture(textureKey);
+
+    this.setGravityY(GameConfig.gravity * (charConfig.gravityScale - 1));
+
+    this.scene.events.emit('characterSwitched', newType);
+  }
+
+  getJumpCount(): number {
+    return this.jumpCount;
+  }
+
+  setJumpCount(count: number): void {
+    this.jumpCount = count;
+  }
+
+  getIsGrounded(): boolean {
+    return this.isGrounded;
   }
 
   activateShopShield(duration: number): void {
