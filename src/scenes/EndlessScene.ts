@@ -459,6 +459,28 @@ export class EndlessScene extends Phaser.Scene {
 
     const finalScore = this.getFinalScore();
 
+    const sideEffectState = this.player.getSideEffectState();
+    const sideEffectStats = {
+      maxAddiction: sideEffectState.maxAddictionInGame,
+      hallucinations: sideEffectState.hallucinationsTriggeredInGame,
+      lossOfControl: sideEffectState.lossOfControlTriggeredInGame
+    };
+
+    this.saveManager.addAddictionStats(
+      sideEffectStats.maxAddiction,
+      sideEffectStats.hallucinations,
+      sideEffectStats.lossOfControl
+    );
+
+    this.saveManager.savePillTrainingScore({
+      pillsCollected: this.pillCount,
+      totalAddictionAccumulated: sideEffectStats.maxAddiction,
+      maxAddictionReached: sideEffectStats.maxAddiction,
+      totalHallucinations: sideEffectStats.hallucinations,
+      totalLossOfControl: sideEffectStats.lossOfControl,
+      gamesPlayed: 1
+    });
+
     const saveResult = this.saveManager.addEndlessScore({
       score: finalScore,
       floor: this.currentFloor,
@@ -466,7 +488,10 @@ export class EndlessScene extends Phaser.Scene {
       maxCombo: this.maxComboInGame,
       multiplier: this.currentMultiplier,
       timeRemaining: Math.max(0, this.timeRemaining),
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      maxAddiction: sideEffectStats.maxAddiction,
+      hallucinations: sideEffectStats.hallucinations,
+      lossOfControl: sideEffectStats.lossOfControl
     });
 
     this.audioManager.stopMusic();
@@ -484,7 +509,10 @@ export class EndlessScene extends Phaser.Scene {
         timeRemaining: Math.max(0, this.timeRemaining),
         isNewRecord: saveResult.isNewRecord,
         rank: saveResult.rank,
-        leaderboard: saveResult.leaderboard
+        leaderboard: saveResult.leaderboard,
+        maxAddiction: sideEffectStats.maxAddiction,
+        hallucinations: sideEffectStats.hallucinations,
+        lossOfControl: sideEffectStats.lossOfControl
       });
     });
   }

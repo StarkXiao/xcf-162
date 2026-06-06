@@ -17,7 +17,11 @@ export class SaveManager {
       pillsPerType: {},
       bestStreak: 0,
       totalScore: 0,
-      gamesPlayed: 0
+      gamesPlayed: 0,
+      totalAddictionAccumulated: 0,
+      maxAddictionReached: 0,
+      totalHallucinations: 0,
+      totalLossOfControl: 0
     },
     guardTraining: {
       guardsAvoided: 0,
@@ -42,7 +46,11 @@ export class SaveManager {
     endlessLeaderboard: [],
     endlessBestScore: 0,
     endlessBestFloor: 0,
-    endlessGamesPlayed: 0
+    endlessGamesPlayed: 0,
+    totalAddictionLevel: 0,
+    maxAddictionReached: 0,
+    totalHallucinationsTriggered: 0,
+    totalLossOfControlTriggered: 0
   };
 
   private constructor() {
@@ -213,30 +221,6 @@ export class SaveManager {
     });
   }
 
-  savePillTrainingScore(score: Partial<PillTrainingScore>): void {
-    const current = this.getTrainingScores();
-    const existing = current.pillTraining;
-    const mergedPillsPerType = { ...existing.pillsPerType };
-    if (score.pillsPerType) {
-      for (const [type, count] of Object.entries(score.pillsPerType)) {
-        mergedPillsPerType[type] = (mergedPillsPerType[type] || 0) + count;
-      }
-    }
-    const updated: PillTrainingScore = {
-      pillsCollected: existing.pillsCollected + (score.pillsCollected || 0),
-      pillsPerType: mergedPillsPerType,
-      bestStreak: Math.max(existing.bestStreak, score.bestStreak || 0),
-      totalScore: existing.totalScore + (score.totalScore || 0),
-      gamesPlayed: existing.gamesPlayed + (score.gamesPlayed || 0)
-    };
-    this.saveGameData({
-      trainingScores: {
-        ...current,
-        pillTraining: updated
-      }
-    });
-  }
-
   saveGuardTrainingScore(score: Partial<GuardTrainingScore>): void {
     const current = this.getTrainingScores();
     const existing = current.guardTraining;
@@ -266,6 +250,9 @@ export class SaveManager {
 
     const newEntry: EndlessLeaderboardEntry = {
       ...entry,
+      maxAddiction: entry.maxAddiction || 0,
+      hallucinations: entry.hallucinations || 0,
+      lossOfControl: entry.lossOfControl || 0,
       rank: 0
     };
 
@@ -300,6 +287,60 @@ export class SaveManager {
 
   getEndlessGamesPlayed(): number {
     return this.getSaveData().endlessGamesPlayed || 0;
+  }
+
+  addAddictionStats(addictionGained: number, hallucinations: number, lossOfControl: number): void {
+    const data = this.getSaveData();
+    this.saveGameData({
+      totalAddictionLevel: (data.totalAddictionLevel || 0) + addictionGained,
+      maxAddictionReached: Math.max(data.maxAddictionReached || 0, addictionGained),
+      totalHallucinationsTriggered: (data.totalHallucinationsTriggered || 0) + hallucinations,
+      totalLossOfControlTriggered: (data.totalLossOfControlTriggered || 0) + lossOfControl
+    });
+  }
+
+  getTotalAddictionLevel(): number {
+    return this.getSaveData().totalAddictionLevel || 0;
+  }
+
+  getMaxAddictionReached(): number {
+    return this.getSaveData().maxAddictionReached || 0;
+  }
+
+  getTotalHallucinationsTriggered(): number {
+    return this.getSaveData().totalHallucinationsTriggered || 0;
+  }
+
+  getTotalLossOfControlTriggered(): number {
+    return this.getSaveData().totalLossOfControlTriggered || 0;
+  }
+
+  savePillTrainingScore(score: Partial<PillTrainingScore>): void {
+    const current = this.getTrainingScores();
+    const existing = current.pillTraining;
+    const mergedPillsPerType = { ...existing.pillsPerType };
+    if (score.pillsPerType) {
+      for (const [type, count] of Object.entries(score.pillsPerType)) {
+        mergedPillsPerType[type] = (mergedPillsPerType[type] || 0) + count;
+      }
+    }
+    const updated: PillTrainingScore = {
+      pillsCollected: existing.pillsCollected + (score.pillsCollected || 0),
+      pillsPerType: mergedPillsPerType,
+      bestStreak: Math.max(existing.bestStreak, score.bestStreak || 0),
+      totalScore: existing.totalScore + (score.totalScore || 0),
+      gamesPlayed: existing.gamesPlayed + (score.gamesPlayed || 0),
+      totalAddictionAccumulated: (existing.totalAddictionAccumulated || 0) + (score.totalAddictionAccumulated || 0),
+      maxAddictionReached: Math.max(existing.maxAddictionReached || 0, score.maxAddictionReached || 0),
+      totalHallucinations: (existing.totalHallucinations || 0) + (score.totalHallucinations || 0),
+      totalLossOfControl: (existing.totalLossOfControl || 0) + (score.totalLossOfControl || 0)
+    };
+    this.saveGameData({
+      trainingScores: {
+        ...current,
+        pillTraining: updated
+      }
+    });
   }
 }
 

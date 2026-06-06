@@ -11,6 +11,9 @@ export class GameOverScene extends Phaser.Scene {
   private isNewMaxCombo: boolean = false;
   private isNewMaxNoDamage: boolean = false;
   private savedHighScore: number = 0;
+  private maxAddiction: number = 0;
+  private hallucinations: number = 0;
+  private lossOfControl: number = 0;
 
   constructor() {
     super('GameOverScene');
@@ -26,6 +29,9 @@ export class GameOverScene extends Phaser.Scene {
     isNewMaxCombo?: boolean;
     isNewMaxNoDamage?: boolean;
     savedHighScore?: number;
+    maxAddiction?: number;
+    hallucinations?: number;
+    lossOfControl?: number;
   }): void {
     this.audioManager = AudioManager.getInstance();
     this.finalScore = data.score;
@@ -35,6 +41,9 @@ export class GameOverScene extends Phaser.Scene {
     this.isNewMaxCombo = !!data.isNewMaxCombo;
     this.isNewMaxNoDamage = !!data.isNewMaxNoDamage;
     this.savedHighScore = data.savedHighScore ?? data.score;
+    this.maxAddiction = data.maxAddiction || 0;
+    this.hallucinations = data.hallucinations || 0;
+    this.lossOfControl = data.lossOfControl || 0;
   }
 
   create(): void {
@@ -120,7 +129,37 @@ export class GameOverScene extends Phaser.Scene {
         repeat: -1
       });
     }
-    nextY += 55;
+    nextY += 35;
+
+    if (this.maxAddiction > 0 || this.hallucinations > 0 || this.lossOfControl > 0) {
+      const addictionColor = this.maxAddiction >= 90 ? '#ff0000' :
+                             this.maxAddiction >= 75 ? '#ff0066' :
+                             this.maxAddiction >= 50 ? '#ffaa00' :
+                             this.maxAddiction >= 25 ? '#ffcc00' : '#888888';
+      this.add.text(GameConfig.width / 2, nextY, `最高成瘾: ${Math.floor(this.maxAddiction)}%`, {
+        fontSize: '16px',
+        color: addictionColor,
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+      nextY += 25;
+
+      if (this.hallucinations > 0) {
+        this.add.text(GameConfig.width / 2, nextY, `幻觉发作: ${this.hallucinations}次`, {
+          fontSize: '14px',
+          color: '#ff00ff'
+        }).setOrigin(0.5);
+        nextY += 22;
+      }
+
+      if (this.lossOfControl > 0) {
+        this.add.text(GameConfig.width / 2, nextY, `失控发作: ${this.lossOfControl}次`, {
+          fontSize: '14px',
+          color: '#ff0066'
+        }).setOrigin(0.5);
+        nextY += 22;
+      }
+    }
+    nextY += 20;
 
     const restartBtn = this.add.text(GameConfig.width / 2, nextY, '再来一次', {
       fontSize: '28px',

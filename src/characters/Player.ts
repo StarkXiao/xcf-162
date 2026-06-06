@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillEffects } from '../config/GameConfig';
+import { GameConfig, PillType, PillEffects, PillSideEffectConfig } from '../config/GameConfig';
+import { PillSideEffectState } from '../types';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private isGrounded: boolean = false;
@@ -14,6 +15,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private slowTimer!: Phaser.Time.TimerEvent | null;
   private shieldTimer!: Phaser.Time.TimerEvent | null;
 
+  private sideEffectState!: PillSideEffectState;
+  private addictionDecayTimer!: Phaser.Time.TimerEvent | null;
+  private hallucinationEffectTimer!: Phaser.Time.TimerEvent | null;
+  private lossOfControlActionTimer!: Phaser.Time.TimerEvent | null;
+  private visualFlashOverlay!: Phaser.GameObjects.Graphics;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
     scene.add.existing(this);
@@ -23,7 +30,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setBounce(0.1);
     this.setFriction(0.5, 0);
 
+    this.sideEffectState = {
+      addictionLevel: 0,
+      isHallucinating: false,
+      hallucinationEndTime: 0,
+      isOutOfControl: false,
+      lossOfControlEndTime: 0,
+      controlOverrideDirection: 0,
+      pillsConsumedInGame: 0,
+      hallucinationsTriggeredInGame: 0,
+      lossOfControlTriggeredInGame: 0,
+      maxAddictionInGame: 0
+    };
+
     this.createShieldEffect();
+    this.createVisualEffects();
+    this.startAddictionDecay();
 
     scene.physics.world.on('worldbounds', () => {
       this.isGrounded = true;
@@ -35,20 +57,247 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.shieldEffect.setVisible(false);
   }
 
+  private createVisualEffects(): void {
+    this.visualFlashOverlay = this.scene.add.graphics();
+    this.visualFlashOverlay.setScrollFactor(0);
+    this.visualFlashOverlay.setDepth(150);
+    this.visualFlashOverlay.setVisible(false);
+  }
+
+  private startAddictionDecay(): void {
+    this.addictionDecayTimer = this.scene.time.addEvent({
+      delay: PillSideEffectConfig.ADDICTION_DECAY_INTERVAL_MS,
+      callback: () => {
+        if (this.sideEffectState.addictionLevel > 0) {
+          const decayAmount = PillSideEffectConfig.ADDICTION_DECAY_RATE_PER_SECOND * (PillSideEffectConfig.ADDICTION_DECAY_INTERVAL_MS / 1000);
+          this.sideEffectState.addictionLevel = Math.max(0, this.sideEffectState.addictionLevel - decayAmount);
+          this.scene.events.emit('addictionLevelChanged', this.sideEffectState.addictionLevel);
+        }
+      },
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  getSideEffectState(): PillSideEffectState {
+    return { ...this.sideEffectState };
+  }
+
+  getAddictionLevel(): number {
+    return this.sideEffectState.addictionLevel;
+  }
+
+  isHallucinating(): boolean {
+    return this.sideEffectState.isHallucinating;
+  }
+
+  isOutOfControl(): boolean {
+    return this.sideEffectState.isOutOfControl;
+  }
+
+  private addAddiction(amount: number): void {
+    const oldLevel = this.sideEffectState.addictionLevel;
+    this.sideEffectState.addictionLevel = Math.min(
+      PillSideEffectConfig.MAX_ADDICTION,
+      this.sideEffectState.addictionLevel + amount
+    );
+    this.sideEffectState.pillsConsumedInGame++;
+
+    if (this.sideEffectState.addictionLevel > this.sideEffectState.maxAddictionInGame) {
+      this.sideEffectState.maxAddictionInGame = this.sideEffectState.addictionLevel;
+    }
+
+    this.scene.events.emit('addictionLevelChanged', this.sideEffectState.addictionLevel);
+
+    if (oldLevel < PillSideEffectConfig.WARNING_THRESHOLD_LOW &&
+        this.sideEffectState.addictionLevel >= PillSideEffectConfig.WARNING_THRESHOLD_LOW) {
+      this.scene.events.emit('addictionWarning', 'low');
+    } else if (oldLevel < PillSideEffectConfig.WARNING_THRESHOLD_MEDIUM &&
+               this.sideEffectState.addictionLevel >= PillSideEffectConfig.WARNING_THRESHOLD_MEDIUM) {
+      this.scene.events.emit('addictionWarning', 'medium');
+    } else if (oldLevel < PillSideEffectConfig.WARNING_THRESHOLD_HIGH &&
+               this.sideEffectState.addictionLevel >= PillSideEffectConfig.WARNING_THRESHOLD_HIGH) {
+      this.scene.events.emit('addictionWarning', 'high');
+    } else if (oldLevel < PillSideEffectConfig.WARNING_THRESHOLD_CRITICAL &&
+               this.sideEffectState.addictionLevel >= PillSideEffectConfig.WARNING_THRESHOLD_CRITICAL) {
+      this.scene.events.emit('addictionWarning', 'critical');
+    }
+  }
+
+  private triggerHallucination(durationMs?: number): void {
+    if (this.sideEffectState.isHallucinating) return;
+
+    const addictionRatio = this.sideEffectState.addictionLevel / PillSideEffectConfig.MAX_ADDICTION;
+    const duration = durationMs ?? Phaser.Math.Clamp(
+      PillSideEffectConfig.HALLUCINATION_BASE_DURATION_MS + addictionRatio * PillSideEffectConfig.HALLUCINATION_MAX_DURATION_MS,
+      PillSideEffectConfig.HALLUCINATION_BASE_DURATION_MS,
+      PillSideEffectConfig.HALLUCINATION_MAX_DURATION_MS
+    );
+
+    this.sideEffectState.isHallucinating = true;
+    this.sideEffectState.hallucinationEndTime = this.scene.time.now + duration;
+    this.sideEffectState.hallucinationsTriggeredInGame++;
+
+    this.scene.events.emit('hallucinationStarted', duration);
+
+    this.scene.cameras.main.shake(
+      PillSideEffectConfig.HALLUCINATION_CAMERA_SHAKE_INTENSITY,
+      duration
+    );
+
+    this.startHallucinationVisualEffects();
+
+    this.scene.time.delayedCall(duration, () => {
+      this.endHallucination();
+    });
+  }
+
+  private startHallucinationVisualEffects(): void {
+    this.hallucinationEffectTimer = this.scene.time.addEvent({
+      delay: PillSideEffectConfig.HALLUCINATION_VISUAL_FLASH_INTERVAL,
+      callback: () => {
+        if (!this.sideEffectState.isHallucinating) {
+          this.hallucinationEffectTimer?.destroy();
+          return;
+        }
+
+        const flashColor = Phaser.Utils.Array.GetRandom([0xff00ff, 0x00ffff, 0xffff00, 0xff0000]);
+        const flashAlpha = Phaser.Math.FloatBetween(0.05, 0.15);
+
+        this.visualFlashOverlay.setVisible(true);
+        this.visualFlashOverlay.clear();
+        this.visualFlashOverlay.fillStyle(flashColor, flashAlpha);
+        this.visualFlashOverlay.fillRect(0, 0, GameConfig.width, GameConfig.height);
+
+        this.scene.time.delayedCall(100, () => {
+          this.visualFlashOverlay.setVisible(false);
+        });
+      },
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  private endHallucination(): void {
+    this.sideEffectState.isHallucinating = false;
+    this.visualFlashOverlay.setVisible(false);
+    this.hallucinationEffectTimer?.destroy();
+    this.scene.events.emit('hallucinationEnded');
+  }
+
+  private triggerLossOfControl(durationMs?: number): void {
+    if (this.sideEffectState.isOutOfControl) return;
+
+    const addictionRatio = this.sideEffectState.addictionLevel / PillSideEffectConfig.MAX_ADDICTION;
+    const duration = durationMs ?? Phaser.Math.Clamp(
+      PillSideEffectConfig.LOSS_OF_CONTROL_BASE_DURATION_MS + addictionRatio * PillSideEffectConfig.LOSS_OF_CONTROL_MAX_DURATION_MS,
+      PillSideEffectConfig.LOSS_OF_CONTROL_BASE_DURATION_MS,
+      PillSideEffectConfig.LOSS_OF_CONTROL_MAX_DURATION_MS
+    );
+
+    this.sideEffectState.isOutOfControl = true;
+    this.sideEffectState.lossOfControlEndTime = this.scene.time.now + duration;
+    this.sideEffectState.lossOfControlTriggeredInGame++;
+    this.sideEffectState.controlOverrideDirection = Phaser.Math.Between(-1, 1);
+
+    this.scene.events.emit('lossOfControlStarted', duration);
+
+    this.startLossOfControlActions();
+
+    this.scene.time.delayedCall(duration, () => {
+      this.endLossOfControl();
+    });
+  }
+
+  private startLossOfControlActions(): void {
+    this.lossOfControlActionTimer = this.scene.time.addEvent({
+      delay: 300,
+      callback: () => {
+        if (!this.sideEffectState.isOutOfControl) {
+          this.lossOfControlActionTimer?.destroy();
+          return;
+        }
+
+        if (Math.random() < PillSideEffectConfig.LOSS_OF_CONTROL_FORCE_MOVE_CHANCE) {
+          this.sideEffectState.controlOverrideDirection = Math.random() < 0.5 ? -1 : 1;
+        } else {
+          this.sideEffectState.controlOverrideDirection = 0;
+        }
+
+        if (Math.random() < PillSideEffectConfig.LOSS_OF_CONTROL_JUMP_CHANCE && this.isGrounded) {
+          this.tryJump();
+        }
+      },
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  private endLossOfControl(): void {
+    this.sideEffectState.isOutOfControl = false;
+    this.sideEffectState.controlOverrideDirection = 0;
+    this.lossOfControlActionTimer?.destroy();
+    this.scene.events.emit('lossOfControlEnded');
+  }
+
+  checkSideEffectTriggers(pillType: PillType): void {
+    const addictionIncrease = PillSideEffectConfig.ADDICTION_PER_PILL[pillType];
+    this.addAddiction(addictionIncrease);
+
+    if (this.sideEffectState.addictionLevel >= PillSideEffectConfig.HALLUCINATION_THRESHOLD) {
+      const hallucinationChance = PillSideEffectConfig.HALLUCINATION_CHANCE_PER_PILL *
+        (this.sideEffectState.addictionLevel / PillSideEffectConfig.HALLUCINATION_THRESHOLD);
+      if (Math.random() < hallucinationChance) {
+        this.triggerHallucination();
+      }
+    }
+
+    if (this.sideEffectState.addictionLevel >= PillSideEffectConfig.LOSS_OF_CONTROL_THRESHOLD) {
+      const locChance = PillSideEffectConfig.LOSS_OF_CONTROL_CHANCE_PER_PILL *
+        (this.sideEffectState.addictionLevel / PillSideEffectConfig.LOSS_OF_CONTROL_THRESHOLD);
+      if (Math.random() < locChance) {
+        this.triggerLossOfControl();
+      }
+    }
+  }
+
   update(keys: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key }, _delta: number): void {
     const speed = GameConfig.playerSpeed * this.speedMultiplier;
 
-    if (keys.left.isDown) {
+    let leftDown = keys.left.isDown;
+    let rightDown = keys.right.isDown;
+    let jumpPressed = Phaser.Input.Keyboard.JustDown(keys.jump);
+
+    if (this.sideEffectState.isHallucinating &&
+        Math.random() < PillSideEffectConfig.HALLUCINATION_INPUT_INVERT_CHANCE) {
+      const temp = leftDown;
+      leftDown = rightDown;
+      rightDown = temp;
+    }
+
+    if (this.sideEffectState.isOutOfControl) {
+      if (this.sideEffectState.controlOverrideDirection !== 0) {
+        if (this.sideEffectState.controlOverrideDirection < 0) {
+          leftDown = true;
+          rightDown = false;
+        } else {
+          leftDown = false;
+          rightDown = true;
+        }
+      }
+    }
+
+    if (leftDown) {
       this.setVelocityX(-speed);
       this.setFlipX(true);
-    } else if (keys.right.isDown) {
+    } else if (rightDown) {
       this.setVelocityX(speed);
       this.setFlipX(false);
     } else {
       this.setVelocityX(0);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(keys.jump)) {
+    if (jumpPressed) {
       this.tryJump();
     }
 
@@ -131,6 +380,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   applyPillEffect(type: PillType): void {
     const effect = PillEffects[type];
 
+    this.checkSideEffectTriggers(type);
+
     switch (type) {
       case PillType.SPEED:
         this.speedMultiplier = effect.value;
@@ -165,7 +416,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.speedTimer) this.speedTimer.destroy();
     if (this.slowTimer) this.slowTimer.destroy();
     if (this.shieldTimer) this.shieldTimer.destroy();
+    if (this.addictionDecayTimer) this.addictionDecayTimer.destroy();
+    if (this.hallucinationEffectTimer) this.hallucinationEffectTimer.destroy();
+    if (this.lossOfControlActionTimer) this.lossOfControlActionTimer.destroy();
     this.shieldEffect.destroy();
+    this.visualFlashOverlay.destroy();
     super.destroy(fromScene);
   }
 }

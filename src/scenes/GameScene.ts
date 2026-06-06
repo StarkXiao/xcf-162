@@ -454,7 +454,10 @@ export class GameScene extends Phaser.Scene {
         isNewHighScore: recordFlags.isNewHighScore,
         isNewMaxCombo: recordFlags.isNewMaxCombo,
         isNewMaxNoDamage: recordFlags.isNewMaxNoDamage,
-        savedHighScore: recordFlags.savedHighScore
+        savedHighScore: recordFlags.savedHighScore,
+        maxAddiction: recordFlags.sideEffectStats.maxAddiction,
+        hallucinations: recordFlags.sideEffectStats.hallucinations,
+        lossOfControl: recordFlags.sideEffectStats.lossOfControl
       });
     });
   }
@@ -464,10 +467,18 @@ export class GameScene extends Phaser.Scene {
     isNewMaxCombo: boolean;
     isNewMaxNoDamage: boolean;
     savedHighScore: number;
+    sideEffectStats: { maxAddiction: number; hallucinations: number; lossOfControl: number };
   } {
     const saveData = this.saveManager.getSaveData();
     const newCycles = this.timeManager.getCycleCount() - this.previousCycleCount;
     const newEvents = this.floorEventManager.getEventsTriggeredCount() - this.previousEventsTriggered;
+
+    const sideEffectState = this.player.getSideEffectState();
+    const sideEffectStats = {
+      maxAddiction: sideEffectState.maxAddictionInGame,
+      hallucinations: sideEffectState.hallucinationsTriggeredInGame,
+      lossOfControl: sideEffectState.lossOfControlTriggeredInGame
+    };
 
     const isNewHighScore = this.score > saveData.highScore;
     const isNewMaxCombo = this.maxComboInGame > (saveData.maxCombo || 0);
@@ -486,14 +497,28 @@ export class GameScene extends Phaser.Scene {
       eventsTriggered: saveData.eventsTriggered + Math.max(0, newEvents),
       maxCombo: savedMaxCombo,
       maxNoDamageFloors: savedMaxNoDamageFloors,
-      totalCombos: (saveData.totalCombos || 0) + this.maxComboInGame
+      totalCombos: (saveData.totalCombos || 0) + this.maxComboInGame,
+      totalAddictionLevel: (saveData.totalAddictionLevel || 0) + sideEffectStats.maxAddiction,
+      maxAddictionReached: Math.max(saveData.maxAddictionReached || 0, sideEffectStats.maxAddiction),
+      totalHallucinationsTriggered: (saveData.totalHallucinationsTriggered || 0) + sideEffectStats.hallucinations,
+      totalLossOfControlTriggered: (saveData.totalLossOfControlTriggered || 0) + sideEffectStats.lossOfControl
+    });
+
+    this.saveManager.savePillTrainingScore({
+      pillsCollected: this.pillCount,
+      totalAddictionAccumulated: sideEffectStats.maxAddiction,
+      maxAddictionReached: sideEffectStats.maxAddiction,
+      totalHallucinations: sideEffectStats.hallucinations,
+      totalLossOfControl: sideEffectStats.lossOfControl,
+      gamesPlayed: 1
     });
 
     return {
       isNewHighScore,
       isNewMaxCombo,
       isNewMaxNoDamage,
-      savedHighScore
+      savedHighScore,
+      sideEffectStats
     };
   }
 

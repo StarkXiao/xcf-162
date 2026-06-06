@@ -25,6 +25,23 @@ export interface SaveData {
   endlessBestScore: number;
   endlessBestFloor: number;
   endlessGamesPlayed: number;
+  totalAddictionLevel: number;
+  maxAddictionReached: number;
+  totalHallucinationsTriggered: number;
+  totalLossOfControlTriggered: number;
+}
+
+export interface PillSideEffectState {
+  addictionLevel: number;
+  isHallucinating: boolean;
+  hallucinationEndTime: number;
+  isOutOfControl: boolean;
+  lossOfControlEndTime: number;
+  controlOverrideDirection: number;
+  pillsConsumedInGame: number;
+  hallucinationsTriggeredInGame: number;
+  lossOfControlTriggeredInGame: number;
+  maxAddictionInGame: number;
 }
 
 export interface EndlessLeaderboardEntry {
@@ -36,6 +53,9 @@ export interface EndlessLeaderboardEntry {
   timeRemaining: number;
   date: string;
   rank: number;
+  maxAddiction: number;
+  hallucinations: number;
+  lossOfControl: number;
 }
 
 export interface TrainingScores {
@@ -58,6 +78,10 @@ export interface PillTrainingScore {
   bestStreak: number;
   totalScore: number;
   gamesPlayed: number;
+  totalAddictionAccumulated: number;
+  maxAddictionReached: number;
+  totalHallucinations: number;
+  totalLossOfControl: number;
 }
 
 export interface GuardTrainingScore {

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillColors, TimeOfDayConfigs } from '../config/GameConfig';
+import { GameConfig, PillType, PillColors, TimeOfDayConfigs, PillSideEffectConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 import { Player } from '../characters/Player';
 import { TimeOfDay, FloorEvent } from '../types';
@@ -29,6 +29,16 @@ export class HUD {
   private currentEvent: FloorEvent | null = null;
   private comboText!: Phaser.GameObjects.Text;
   private noDamageText!: Phaser.GameObjects.Text;
+  private addictionBarBg!: Phaser.GameObjects.Graphics;
+  private addictionBar!: Phaser.GameObjects.Graphics;
+  private addictionText!: Phaser.GameObjects.Text;
+  private addictionIcon!: Phaser.GameObjects.Text;
+  private sideEffectStatusText!: Phaser.GameObjects.Text;
+  private sideEffectWarningText!: Phaser.GameObjects.Text;
+  private sideEffectWarningBg!: Phaser.GameObjects.Graphics;
+  private currentAddictionLevel: number = 0;
+  private isHallucinating: boolean = false;
+  private isOutOfControl: boolean = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -120,6 +130,37 @@ export class HUD {
       fontStyle: 'bold'
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
 
+    this.addictionIcon = this.scene.add.text(20, 75 + scrollY, '☠', {
+      fontSize: '14px',
+      color: '#888888'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.addictionText = this.scene.add.text(40, 73 + scrollY, '0%', {
+      fontSize: '12px',
+      color: '#888888',
+      fontStyle: 'bold'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.addictionBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+    this.addictionBar = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+
+    this.sideEffectWarningBg = this.scene.add.graphics().setScrollFactor(0).setDepth(199);
+    this.sideEffectWarningBg.setVisible(false);
+
+    this.sideEffectWarningText = this.scene.add.text(GameConfig.width / 2, GameConfig.height / 2 - 100 + scrollY, '', {
+      fontSize: '24px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(0);
+
+    this.sideEffectStatusText = this.scene.add.text(GameConfig.width / 2, 180 + scrollY, '', {
+      fontSize: '14px',
+      color: '#ff0066',
+      fontStyle: 'bold'
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
+
     this.musicBtn = this.scene.add.text(10, GameConfig.height - 40 + scrollY, '♪', {
       fontSize: '24px',
       color: '#ffffff',
@@ -151,6 +192,135 @@ export class HUD {
     this.scene.events.on('scoreBonus', (value: number) => {
       this.showScorePopup(value);
     });
+
+    this.scene.events.on('addictionLevelChanged', (level: number) => {
+      this.updateAddictionLevel(level);
+    });
+
+    this.scene.events.on('addictionWarning', (severity: string) => {
+      this.showAddictionWarning(severity);
+    });
+
+    this.scene.events.on('hallucinationStarted', (_duration: number) => {
+      this.isHallucinating = true;
+      this.updateSideEffectStatus();
+    });
+
+    this.scene.events.on('hallucinationEnded', () => {
+      this.isHallucinating = false;
+      this.updateSideEffectStatus();
+    });
+
+    this.scene.events.on('lossOfControlStarted', (_duration: number) => {
+      this.isOutOfControl = true;
+      this.updateSideEffectStatus();
+    });
+
+    this.scene.events.on('lossOfControlEnded', () => {
+      this.isOutOfControl = false;
+      this.updateSideEffectStatus();
+    });
+  }
+
+  updateAddictionLevel(level: number): void {
+    this.currentAddictionLevel = level;
+    this.addictionText.setText(`${Math.floor(level)}%`);
+
+    let color = '#888888';
+    if (level >= PillSideEffectConfig.WARNING_THRESHOLD_CRITICAL) color = '#ff0000';
+    else if (level >= PillSideEffectConfig.WARNING_THRESHOLD_HIGH) color = '#ff0066';
+    else if (level >= PillSideEffectConfig.WARNING_THRESHOLD_MEDIUM) color = '#ffaa00';
+    else if (level >= PillSideEffectConfig.WARNING_THRESHOLD_LOW) color = '#ffcc00';
+
+    this.addictionText.setColor(color);
+    this.addictionIcon.setColor(color);
+
+    const scrollY = this.scene.cameras.main.scrollY;
+    const barX = 65;
+    const barY = 77 + scrollY;
+    const barWidth = 100;
+    const barHeight = 6;
+    const progress = Math.max(0, Math.min(1, level / PillSideEffectConfig.MAX_ADDICTION));
+
+    this.addictionBarBg.clear();
+    this.addictionBarBg.fillStyle(0x333333, 0.8);
+    this.addictionBarBg.fillRect(barX, barY, barWidth, barHeight);
+
+    this.addictionBar.clear();
+    let barColor = 0x888888;
+    if (level >= PillSideEffectConfig.WARNING_THRESHOLD_CRITICAL) barColor = 0xff0000;
+    else if (level >= PillSideEffectConfig.WARNING_THRESHOLD_HIGH) barColor = 0xff0066;
+    else if (level >= PillSideEffectConfig.WARNING_THRESHOLD_MEDIUM) barColor = 0xffaa00;
+    else if (level >= PillSideEffectConfig.WARNING_THRESHOLD_LOW) barColor = 0xffcc00;
+    this.addictionBar.fillStyle(barColor, 1);
+    this.addictionBar.fillRect(barX, barY, barWidth * progress, barHeight);
+  }
+
+  showAddictionWarning(severity: string): void {
+    const warnings: Record<string, { text: string; color: string; bgColor: number }> = {
+      low: { text: '⚠ 开始成瘾...', color: '#ffcc00', bgColor: 0xffcc00 },
+      medium: { text: '⚠⚠ 依赖加深！', color: '#ffaa00', bgColor: 0xffaa00 },
+      high: { text: '⚠⚠⚠ 危险！失控边缘！', color: '#ff0066', bgColor: 0xff0066 },
+      critical: { text: '☠☠☠ 极度危险！随时失控！', color: '#ff0000', bgColor: 0xff0000 }
+    };
+
+    const warning = warnings[severity];
+    if (!warning) return;
+
+    const scrollY = this.scene.cameras.main.scrollY;
+    this.sideEffectWarningBg.setVisible(true);
+    this.sideEffectWarningBg.clear();
+    this.sideEffectWarningBg.fillStyle(warning.bgColor, 0.2);
+    this.sideEffectWarningBg.fillRect(0, GameConfig.height / 2 - 130 + scrollY, GameConfig.width, 80);
+
+    this.sideEffectWarningText.setText(warning.text);
+    this.sideEffectWarningText.setColor(warning.color);
+    this.sideEffectWarningText.setAlpha(1);
+
+    this.scene.tweens.add({
+      targets: this.sideEffectWarningText,
+      scale: { from: 1.5, to: 1 },
+      duration: 400,
+      ease: 'Elastic.easeOut'
+    });
+
+    this.scene.time.delayedCall(2500, () => {
+      this.scene.tweens.add({
+        targets: [this.sideEffectWarningText, this.sideEffectWarningBg],
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          this.sideEffectWarningBg.setVisible(false);
+        }
+      });
+    });
+  }
+
+  private updateSideEffectStatus(): void {
+    if (this.isHallucinating || this.isOutOfControl) {
+      let status = '';
+      if (this.isHallucinating && this.isOutOfControl) {
+        status = '☠ 幻觉 + 失控！';
+      } else if (this.isHallucinating) {
+        status = '✦ 幻觉中...';
+      } else if (this.isOutOfControl) {
+        status = '⚡ 失控中...';
+      }
+      this.sideEffectStatusText.setText(status);
+      this.sideEffectStatusText.setAlpha(1);
+      this.scene.tweens.add({
+        targets: this.sideEffectStatusText,
+        scale: { from: 1.4, to: 1 },
+        duration: 300,
+        ease: 'Elastic.easeOut'
+      });
+    } else {
+      this.scene.tweens.add({
+        targets: this.sideEffectStatusText,
+        alpha: 0,
+        duration: 300
+      });
+    }
   }
 
   updateScore(score: number): void {
@@ -444,6 +614,22 @@ export class HUD {
       this.shieldIcon.clear();
       this.shieldIcon.lineStyle(2, 0xff00ff, pulse);
       this.shieldIcon.strokeCircle(50, 60 + scrollY, 15);
+    }
+
+    if (this.isHallucinating || this.isOutOfControl || this.currentAddictionLevel >= PillSideEffectConfig.WARNING_THRESHOLD_MEDIUM) {
+      const pulse = Math.sin(this.scene.time.now * 0.015) * 0.4 + 0.6;
+      this.addictionIcon.setAlpha(pulse);
+      this.addictionText.setAlpha(pulse);
+    } else {
+      this.addictionIcon.setAlpha(1);
+      this.addictionText.setAlpha(1);
+    }
+
+    if (this.sideEffectStatusText.alpha > 0 && (this.isHallucinating || this.isOutOfControl)) {
+      const wobble = Math.sin(this.scene.time.now * 0.02) * 2;
+      const colorHue = (this.scene.time.now * 0.1) % 360;
+      this.sideEffectStatusText.setY(180 + scrollY + wobble);
+      this.sideEffectStatusText.setColor(`hsl(${colorHue}, 100%, 60%)`);
     }
   }
 }

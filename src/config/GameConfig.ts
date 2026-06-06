@@ -134,6 +134,38 @@ export const PillEffects: Record<PillType, { duration: number; value: number }> 
   [PillType.SHIELD]: { duration: 6000, value: 1 }
 };
 
+export class PillSideEffectConfig {
+  static readonly MAX_ADDICTION: number = 100;
+  static readonly ADDICTION_PER_PILL: Record<PillType, number> = {
+    [PillType.SPEED]: 12,
+    [PillType.SLOW]: 8,
+    [PillType.SCORE]: 10,
+    [PillType.SHIELD]: 15
+  };
+  static readonly ADDICTION_DECAY_RATE_PER_SECOND: number = 1.5;
+  static readonly ADDICTION_DECAY_INTERVAL_MS: number = 500;
+
+  static readonly HALLUCINATION_THRESHOLD: number = 40;
+  static readonly HALLUCINATION_CHANCE_PER_PILL: number = 0.15;
+  static readonly HALLUCINATION_BASE_DURATION_MS: number = 3000;
+  static readonly HALLUCINATION_MAX_DURATION_MS: number = 8000;
+  static readonly HALLUCINATION_INPUT_INVERT_CHANCE: number = 0.3;
+  static readonly HALLUCINATION_CAMERA_SHAKE_INTENSITY: number = 0.008;
+  static readonly HALLUCINATION_VISUAL_FLASH_INTERVAL: number = 400;
+
+  static readonly LOSS_OF_CONTROL_THRESHOLD: number = 75;
+  static readonly LOSS_OF_CONTROL_CHANCE_PER_PILL: number = 0.1;
+  static readonly LOSS_OF_CONTROL_BASE_DURATION_MS: number = 2000;
+  static readonly LOSS_OF_CONTROL_MAX_DURATION_MS: number = 5000;
+  static readonly LOSS_OF_CONTROL_FORCE_MOVE_CHANCE: number = 0.6;
+  static readonly LOSS_OF_CONTROL_JUMP_CHANCE: number = 0.3;
+
+  static readonly WARNING_THRESHOLD_LOW: number = 25;
+  static readonly WARNING_THRESHOLD_MEDIUM: number = 50;
+  static readonly WARNING_THRESHOLD_HIGH: number = 75;
+  static readonly WARNING_THRESHOLD_CRITICAL: number = 90;
+}
+
 export const TimeOfDayConfigs: Record<TimeOfDay, TimeOfDayConfig> = {
   [TimeOfDay.DAWN]: {
     name: '黎明',
