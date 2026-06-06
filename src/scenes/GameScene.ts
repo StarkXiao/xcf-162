@@ -1,10 +1,14 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType } from '../config/GameConfig';
+import { GameConfig, PillType, TimeOfDayConfigs } from '../config/GameConfig';
 import { Player } from '../characters/Player';
 import { Guard } from '../enemies/Guard';
 import { PillManager } from '../items/PillManager';
 import { HUD } from '../ui/HUD';
 import { AudioManager } from '../audio/AudioManager';
+import { TimeManager } from '../utils/TimeManager';
+import { FloorEventManager } from '../utils/FloorEventManager';
+import { SaveManager } from '../utils/SaveManager';
+import { TimeOfDay, FloorEvent } from '../types';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -22,8 +26,14 @@ export class GameScene extends Phaser.Scene {
   private neonLights: Phaser.GameObjects.Image[] = [];
   private hud!: HUD;
   private audioManager!: AudioManager;
+  private saveManager!: SaveManager;
   private isGameOver: boolean = false;
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
+  private timeManager!: TimeManager;
+  private floorEventManager!: FloorEventManager;
+  private darkOverlay!: Phaser.GameObjects.Graphics;
+  private previousCycleCount: number = 0;
+  private previousEventsTriggered: number = 0;
 
   constructor() {
     super('GameScene');
@@ -31,6 +41,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.audioManager = AudioManager.getInstance();
+    this.saveManager = SaveManager.getInstance();
     this.isGameOver = false;
     this.score = 0;
     this.pillCount = 0;
@@ -38,9 +49,13 @@ export class GameScene extends Phaser.Scene {
     this.worldScrollY = 0;
     this.cameraTargetY = 0;
     this.guards = [];
+    this.previousCycleCount = 0;
+    this.previousEventsTriggered = 0;
 
-    this.cameras.main.setBackgroundColor('#0a0a1a');
+    const initialTime = this.saveManager.getLastTimeOfDay();
+    this.cameras.main.setBackgroundColor(TimeOfDayConfigs[initialTime].bgColor);
     this.createBackground();
+    this.createDarkOverlay();
 
     this.keys = {
       left: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
@@ -58,13 +73,20 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, startX, startY);
     this.pillManager = new PillManager(this);
 
+    this.timeManager = new TimeManager(this, initialTime);
+    this.floorEventManager = new FloorEventManager(this);
+
     this.hud = new HUD(this);
     this.hud.updateScore(this.score);
     this.hud.updateFloor(this.currentFloor);
     this.hud.updatePills(this.pillCount);
+    this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
 
     this.setupCollisions();
     this.setupTimers();
+    this.setupManagers();
+    this.applyTimeOfDaySettings();
+
     this.audioManager.playMusic();
   }
 
@@ -81,6 +103,32 @@ export class GameScene extends Phaser.Scene {
       light.setScale(Phaser.Math.FloatBetween(0.5, 1.2));
       this.neonLights.push(light);
     }
+  }
+
+  private createDarkOverlay(): void {
+    this.darkOverlay = this.add.graphics();
+    this.darkOverlay.setScrollFactor(0);
+    this.darkOverlay.setDepth(99);
+    this.updateDarkOverlay();
+  }
+
+  private updateDarkOverlay(): void {
+    if (!this.darkOverlay) return;
+
+    const timeConfig = this.timeManager?.getConfig() || TimeOfDayConfigs[TimeOfDay.DAWN];
+    let alpha = 1 - timeConfig.lightOpacity;
+
+    if (this.floorEventManager?.isLightsOut()) {
+      alpha = Math.max(alpha, 0.75);
+    }
+
+    this.darkOverlay.clear();
+    this.darkOverlay.fillStyle(0x000000, alpha);
+    this.darkOverlay.fillRect(0, 0, GameConfig.width, GameConfig.height);
+
+    const gradient = this.add.graphics();
+    gradient.setScrollFactor(0);
+    gradient.setDepth(99);
   }
 
   private createPlatforms(): void {
@@ -122,25 +170,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupTimers(): void {
-    this.spawnTimer = this.time.addEvent({
-      delay: GameConfig.guardSpawnInterval,
-      callback: this.spawnGuard,
-      callbackScope: this,
-      loop: true,
-      startAt: 3000
-    });
-
-    this.pillTimer = this.time.addEvent({
-      delay: GameConfig.pillSpawnInterval,
-      callback: this.spawnPill,
-      callbackScope: this,
-      loop: true
-    });
+    this.resetSpawnTimer();
+    this.resetPillTimer();
 
     this.scoreTimer = this.time.addEvent({
       delay: 1000,
       callback: () => {
-        this.score += GameConfig.survivalScoreRate;
+        const scoreMultiplier = this.floorEventManager.getEventEffect('score');
+        this.score += Math.floor(GameConfig.survivalScoreRate * scoreMultiplier);
         this.hud.updateScore(this.score);
       },
       callbackScope: this,
@@ -148,12 +185,113 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private setupManagers(): void {
+    this.timeManager.start((newTime: TimeOfDay, _oldTime: TimeOfDay) => {
+      this.onTimeOfDayChange(newTime);
+    });
+
+    this.floorEventManager.setCallbacks(
+      (event: FloorEvent) => this.onEventStart(event),
+      (event: FloorEvent) => this.onEventEnd(event)
+    );
+  }
+
+  private resetSpawnTimer(): void {
+    if (this.spawnTimer) {
+      this.spawnTimer.destroy();
+    }
+
+    const timeConfig = this.timeManager.getConfig();
+    const eventMultiplier = this.floorEventManager.getEventEffect('guardSpawn');
+    const delay = GameConfig.guardSpawnInterval / (timeConfig.guardSpawnMultiplier * eventMultiplier);
+
+    this.spawnTimer = this.time.addEvent({
+      delay: delay,
+      callback: this.spawnGuard,
+      callbackScope: this,
+      loop: true,
+      startAt: 3000
+    });
+  }
+
+  private resetPillTimer(): void {
+    if (this.pillTimer) {
+      this.pillTimer.destroy();
+    }
+
+    const timeConfig = this.timeManager.getConfig();
+    const eventMultiplier = this.floorEventManager.getEventEffect('pillSpawn');
+    const delay = GameConfig.pillSpawnInterval / (timeConfig.pillSpawnMultiplier * eventMultiplier);
+
+    this.pillTimer = this.time.addEvent({
+      delay: delay,
+      callback: this.spawnPill,
+      callbackScope: this,
+      loop: true
+    });
+  }
+
+  private applyTimeOfDaySettings(): void {
+    const timeConfig = this.timeManager.getConfig();
+
+    this.cameras.main.setBackgroundColor(timeConfig.bgColor);
+    this.pillManager.setPillWeights(timeConfig.pillWeights);
+
+    this.guards.forEach(guard => {
+      guard.setTimeMultipliers(timeConfig.guardSpeedMultiplier, timeConfig.guardDetectionRange);
+    });
+
+    this.updateDarkOverlay();
+    this.resetSpawnTimer();
+    this.resetPillTimer();
+  }
+
+  private onTimeOfDayChange(newTime: TimeOfDay): void {
+    this.applyTimeOfDaySettings();
+    this.saveManager.setLastTimeOfDay(newTime);
+
+    const currentCycles = this.timeManager.getCycleCount();
+    if (currentCycles > this.previousCycleCount) {
+      this.saveManager.addDayCycles(currentCycles - this.previousCycleCount);
+      this.previousCycleCount = currentCycles;
+    }
+  }
+
+  private onEventStart(event: FloorEvent): void {
+    this.hud.showEvent(event);
+    this.audioManager.play('guard');
+    this.updateDarkOverlay();
+    this.resetSpawnTimer();
+    this.resetPillTimer();
+
+    const currentEvents = this.floorEventManager.getEventsTriggeredCount();
+    if (currentEvents > this.previousEventsTriggered) {
+      this.saveManager.addEventsTriggered(currentEvents - this.previousEventsTriggered);
+      this.previousEventsTriggered = currentEvents;
+    }
+  }
+
+  private onEventEnd(_event: FloorEvent): void {
+    this.hud.hideEvent();
+    this.updateDarkOverlay();
+    this.resetSpawnTimer();
+    this.resetPillTimer();
+  }
+
   private spawnGuard(): void {
     if (this.isGameOver) return;
 
+    const timeConfig = this.timeManager.getConfig();
     const spawnY = this.cameraTargetY - 100;
     const spawnX = Phaser.Math.Between(60, GameConfig.width - 60);
-    const guard = new Guard(this, spawnX, spawnY, this.player);
+    const guard = new Guard(
+      this,
+      spawnX,
+      spawnY,
+      this.player,
+      timeConfig.guardSpeedMultiplier,
+      timeConfig.guardDetectionRange
+    );
     this.guards.push(guard);
 
     this.platforms.forEach(platformGroup => {
@@ -167,8 +305,8 @@ export class GameScene extends Phaser.Scene {
   private spawnPill(): void {
     if (this.isGameOver) return;
 
-    const types = [PillType.SPEED, PillType.SLOW, PillType.SCORE, PillType.SHIELD];
-    const type = Phaser.Utils.Array.GetRandom(types)!;
+    const rareMultiplier = this.floorEventManager.getEventEffect('pillRare');
+    const type = this.pillManager.getRandomPillType(rareMultiplier);
     const spawnY = this.cameraTargetY - Phaser.Math.Between(50, 200);
     const spawnX = Phaser.Math.Between(60, GameConfig.width - 60);
     this.pillManager.spawnPill(spawnX, spawnY, type);
@@ -179,6 +317,7 @@ export class GameScene extends Phaser.Scene {
     if (floor > this.currentFloor) {
       this.currentFloor = floor;
       this.hud.updateFloor(this.currentFloor);
+      this.floorEventManager.checkFloorEvent(this.currentFloor);
       this.audioManager.play('jump');
     }
   }
@@ -188,7 +327,10 @@ export class GameScene extends Phaser.Scene {
     const pillType = pillObj.getData('type') as PillType;
     this.pillManager.collectPill(pillObj);
     this.pillCount++;
-    this.score += GameConfig.pillScore;
+
+    const scoreMultiplier = this.floorEventManager.getEventEffect('score');
+    this.score += Math.floor(GameConfig.pillScore * scoreMultiplier);
+
     this.hud.updatePills(this.pillCount);
     this.hud.updateScore(this.score);
     this.hud.showEffect(pillType);
@@ -213,9 +355,15 @@ export class GameScene extends Phaser.Scene {
 
   private gameOver(): void {
     this.isGameOver = true;
-    this.spawnTimer.destroy();
-    this.pillTimer.destroy();
-    this.scoreTimer.destroy();
+
+    if (this.spawnTimer) this.spawnTimer.destroy();
+    if (this.pillTimer) this.pillTimer.destroy();
+    if (this.scoreTimer) this.scoreTimer.destroy();
+
+    this.timeManager.pause();
+
+    this.saveGameState();
+
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
 
@@ -229,13 +377,29 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private saveGameState(): void {
+    const saveData = this.saveManager.getSaveData();
+    const newCycles = this.timeManager.getCycleCount() - this.previousCycleCount;
+    const newEvents = this.floorEventManager.getEventsTriggeredCount() - this.previousEventsTriggered;
+
+    this.saveManager.saveGameData({
+      highScore: Math.max(saveData.highScore, this.score),
+      totalPills: saveData.totalPills + this.pillCount,
+      gamesPlayed: saveData.gamesPlayed + 1,
+      lastTimeOfDay: this.timeManager.getCurrentTimeOfDay(),
+      totalDayCycles: saveData.totalDayCycles + Math.max(0, newCycles),
+      eventsTriggered: saveData.eventsTriggered + Math.max(0, newEvents)
+    });
+  }
+
   update(_time: number, delta: number): void {
     if (this.isGameOver) return;
 
     this.player.update(this.keys, delta);
 
+    const eventGuardSpeedMultiplier = this.floorEventManager.getEventEffect('guardSpeed');
     this.guards.forEach(guard => {
-      guard.update(delta, this.player.guardSlowMultiplier);
+      guard.update(delta, this.player.guardSlowMultiplier, eventGuardSpeedMultiplier);
     });
 
     this.pillManager.update();
@@ -249,10 +413,18 @@ export class GameScene extends Phaser.Scene {
       this.gameOver();
     }
 
+    const timeConfig = this.timeManager.getConfig();
+    const baseLightAlpha = timeConfig.lightOpacity;
     this.neonLights.forEach((light, index) => {
-      const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + 0.4;
-      light.setAlpha(pulse);
+      const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + baseLightAlpha;
+      light.setAlpha(pulse * 0.6);
     });
+
+    this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
+
+    if (this.floorEventManager.hasActiveEvent()) {
+      this.hud.updateEventProgress(this.floorEventManager.getEventProgress());
+    }
 
     this.hud.update();
   }

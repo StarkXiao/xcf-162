@@ -10,8 +10,17 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
   private patrolDirection: number = 1;
   private lastSeenX: number = 0;
   private lastSeenY: number = 0;
+  private timeSpeedMultiplier: number = 1;
+  private detectionRange: number = 150;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, player: Player) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    player: Player,
+    timeSpeedMultiplier: number = 1,
+    detectionRange: number = 150
+  ) {
     super(scene, x, y, 'guard');
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -19,6 +28,8 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     this.targetPlayer = player;
     this.lastSeenX = x;
     this.lastSeenY = y;
+    this.timeSpeedMultiplier = timeSpeedMultiplier;
+    this.detectionRange = detectionRange;
 
     this.setCollideWorldBounds(false);
     this.setBounce(0);
@@ -27,6 +38,11 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     this.createAlertIcon();
 
     this.patrolDirection = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+  }
+
+  setTimeMultipliers(speedMultiplier: number, detectionRange: number): void {
+    this.timeSpeedMultiplier = speedMultiplier;
+    this.detectionRange = detectionRange;
   }
 
   private createAlertIcon(): void {
@@ -38,12 +54,11 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     this.alertIcon.setVisible(false);
   }
 
-  update(_delta: number, slowMultiplier: number): void {
-    const speed = this.baseSpeed * slowMultiplier;
+  update(_delta: number, slowMultiplier: number, eventSpeedMultiplier: number = 1): void {
+    const effectiveSpeed = this.baseSpeed * slowMultiplier * this.timeSpeedMultiplier * eventSpeedMultiplier;
     const distance = Phaser.Math.Distance.Between(this.x, this.y, this.targetPlayer.x, this.targetPlayer.y);
-    const detectionRange = 150;
 
-    if (distance < detectionRange) {
+    if (distance < this.detectionRange) {
       this.isAlerted = true;
       this.lastSeenX = this.targetPlayer.x;
       this.lastSeenY = this.targetPlayer.y;
@@ -62,9 +77,9 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
 
     if (this.isAlerted) {
       this.setData('lastSeenTime', this.scene.time.now);
-      this.chasePlayer(speed);
+      this.chasePlayer(effectiveSpeed);
     } else {
-      this.patrol(speed * 0.6);
+      this.patrol(effectiveSpeed * 0.6);
     }
 
     this.updateAlertPosition();
@@ -124,3 +139,4 @@ export class Guard extends Phaser.Physics.Arcade.Sprite {
     super.destroy(fromScene);
   }
 }
+

@@ -1,4 +1,4 @@
-import { SaveData } from '../types';
+import { SaveData, TimeOfDay } from '../types';
 
 export class SaveManager {
   private static instance: SaveManager;
@@ -6,7 +6,10 @@ export class SaveManager {
   private defaultData: SaveData = {
     highScore: 0,
     totalPills: 0,
-    gamesPlayed: 0
+    gamesPlayed: 0,
+    lastTimeOfDay: TimeOfDay.DAWN,
+    totalDayCycles: 0,
+    eventsTriggered: 0
   };
 
   private constructor() {
@@ -30,7 +33,11 @@ export class SaveManager {
     try {
       const saved = localStorage.getItem(this.STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return {
+          ...this.defaultData,
+          ...parsed
+        };
       }
       return { ...this.defaultData };
     } catch (e) {
@@ -73,6 +80,32 @@ export class SaveManager {
     this.saveGameData({ gamesPlayed: data.gamesPlayed + 1 });
   }
 
+  setLastTimeOfDay(time: TimeOfDay): void {
+    this.saveGameData({ lastTimeOfDay: time });
+  }
+
+  getLastTimeOfDay(): TimeOfDay {
+    return this.getSaveData().lastTimeOfDay || TimeOfDay.DAWN;
+  }
+
+  addDayCycles(count: number): void {
+    const data = this.getSaveData();
+    this.saveGameData({ totalDayCycles: data.totalDayCycles + count });
+  }
+
+  getTotalDayCycles(): number {
+    return this.getSaveData().totalDayCycles || 0;
+  }
+
+  addEventsTriggered(count: number): void {
+    const data = this.getSaveData();
+    this.saveGameData({ eventsTriggered: data.eventsTriggered + count });
+  }
+
+  getEventsTriggered(): number {
+    return this.getSaveData().eventsTriggered || 0;
+  }
+
   resetSaveData(): void {
     this.saveGameData(this.defaultData);
   }
@@ -81,3 +114,4 @@ export class SaveManager {
     return score > this.getHighScore();
   }
 }
+

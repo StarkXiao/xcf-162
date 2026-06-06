@@ -6,6 +6,12 @@ export class PillManager {
   private scene: Phaser.Scene;
   private pills: Phaser.Physics.Arcade.Group;
   private maxPills: number = 8;
+  private pillWeights: Record<string, number> = {
+    speed: 1,
+    slow: 1,
+    score: 1,
+    shield: 1
+  };
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -13,6 +19,30 @@ export class PillManager {
       allowGravity: false,
       immovable: true
     });
+  }
+
+  setPillWeights(weights: Record<string, number>): void {
+    this.pillWeights = { ...weights };
+  }
+
+  getRandomPillType(rareMultiplier: number = 1): PillType {
+    const weights = { ...this.pillWeights };
+
+    if (rareMultiplier !== 1) {
+      weights.shield = (weights.shield || 1) * rareMultiplier;
+    }
+
+    const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+    let random = Math.random() * totalWeight;
+
+    for (const [type, weight] of Object.entries(weights)) {
+      random -= weight;
+      if (random <= 0) {
+        return type as PillType;
+      }
+    }
+
+    return PillType.SPEED;
   }
 
   spawnPill(x: number, y: number, type: PillType): void {
@@ -117,3 +147,4 @@ export class PillManager {
     return this.pills;
   }
 }
+

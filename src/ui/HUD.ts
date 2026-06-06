@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillColors } from '../config/GameConfig';
+import { GameConfig, PillType, PillColors, TimeOfDayConfigs } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 import { Player } from '../characters/Player';
+import { TimeOfDay, FloorEvent } from '../types';
 
 export class HUD {
   private scene: Phaser.Scene;
@@ -16,6 +17,15 @@ export class HUD {
   private sfxBtn!: Phaser.GameObjects.Text;
   private currentEffectTimer!: Phaser.Time.TimerEvent | null;
   private scorePopup: Phaser.GameObjects.Text[] = [];
+  private timeText!: Phaser.GameObjects.Text;
+  private timeIcon!: Phaser.GameObjects.Text;
+  private timeBarBg!: Phaser.GameObjects.Graphics;
+  private timeBar!: Phaser.GameObjects.Graphics;
+  private eventText!: Phaser.GameObjects.Text;
+  private eventDescription!: Phaser.GameObjects.Text;
+  private eventTimerBar!: Phaser.GameObjects.Graphics;
+  private eventTimerBarBg!: Phaser.GameObjects.Graphics;
+  private currentEvent: FloorEvent | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -52,7 +62,34 @@ export class HUD {
     pillIcon.fillCircle(GameConfig.width - 115, 27 + scrollY, 8);
     pillIcon.setScrollFactor(0).setDepth(101);
 
-    this.effectText = this.scene.add.text(GameConfig.width / 2, 70 + scrollY, '', {
+    this.timeIcon = this.scene.add.text(20, 50 + scrollY, '🌅', {
+      fontSize: '18px'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.timeText = this.scene.add.text(45, 50 + scrollY, '黎明', {
+      fontSize: '14px',
+      color: '#ffaa00',
+      fontStyle: 'bold'
+    }).setScrollFactor(0).setDepth(101);
+
+    this.timeBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+    this.timeBar = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+
+    this.eventText = this.scene.add.text(GameConfig.width / 2, 95 + scrollY, '', {
+      fontSize: '18px',
+      color: '#ff6600',
+      fontStyle: 'bold'
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
+
+    this.eventDescription = this.scene.add.text(GameConfig.width / 2, 118 + scrollY, '', {
+      fontSize: '12px',
+      color: '#ffcc88'
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
+
+    this.eventTimerBarBg = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+    this.eventTimerBar = this.scene.add.graphics().setScrollFactor(0).setDepth(101);
+
+    this.effectText = this.scene.add.text(GameConfig.width / 2, 140 + scrollY, '', {
       fontSize: '16px',
       color: '#ffffff',
       fontStyle: 'bold'
@@ -121,6 +158,72 @@ export class HUD {
     this.pillText.setText(count.toString());
   }
 
+  updateTimeOfDay(time: TimeOfDay, progress: number): void {
+    const config = TimeOfDayConfigs[time];
+    this.timeIcon.setText(config.icon);
+    this.timeText.setText(config.name);
+
+    const scrollY = this.scene.cameras.main.scrollY;
+    const barX = 85;
+    const barY = 57 + scrollY;
+    const barWidth = 80;
+    const barHeight = 6;
+
+    this.timeBarBg.clear();
+    this.timeBarBg.fillStyle(0x333333, 0.8);
+    this.timeBarBg.fillRect(barX, barY, barWidth, barHeight);
+
+    this.timeBar.clear();
+    this.timeBar.fillStyle(0xffaa00, 1);
+    this.timeBar.fillRect(barX, barY, barWidth * progress, barHeight);
+  }
+
+  showEvent(event: FloorEvent): void {
+    this.currentEvent = event;
+
+    this.eventText.setText(`⚡ ${event.name}`);
+    this.eventText.setAlpha(1);
+    this.eventDescription.setText(event.description);
+    this.eventDescription.setAlpha(1);
+
+    this.scene.tweens.add({
+      targets: [this.eventText, this.eventDescription],
+      y: '+=5',
+      duration: 300,
+      yoyo: true,
+      repeat: 2
+    });
+  }
+
+  hideEvent(): void {
+    this.currentEvent = null;
+    this.scene.tweens.add({
+      targets: [this.eventText, this.eventDescription, this.eventTimerBar, this.eventTimerBarBg],
+      alpha: 0,
+      duration: 300
+    });
+  }
+
+  updateEventProgress(progress: number): void {
+    if (!this.currentEvent) return;
+
+    const scrollY = this.scene.cameras.main.scrollY;
+    const barX = GameConfig.width / 2 - 60;
+    const barY = 140 + scrollY;
+    const barWidth = 120;
+    const barHeight = 4;
+
+    this.eventTimerBarBg.clear();
+    this.eventTimerBarBg.fillStyle(0x333333, 0.8);
+    this.eventTimerBarBg.fillRect(barX, barY, barWidth, barHeight);
+    this.eventTimerBarBg.setAlpha(1);
+
+    this.eventTimerBar.clear();
+    this.eventTimerBar.fillStyle(0xff6600, 1);
+    this.eventTimerBar.fillRect(barX, barY, barWidth * (1 - progress), barHeight);
+    this.eventTimerBar.setAlpha(1);
+  }
+
   showEffect(type: PillType): void {
     const effectNames: Record<PillType, string> = {
       [PillType.SPEED]: '速度提升!',
@@ -139,7 +242,7 @@ export class HUD {
 
     this.effectIcon.clear();
     this.effectIcon.fillStyle(PillColors[type]);
-    this.effectIcon.fillCircle(GameConfig.width / 2 - 80, 80 + this.scene.cameras.main.scrollY, 10);
+    this.effectIcon.fillCircle(GameConfig.width / 2 - 80, 150 + this.scene.cameras.main.scrollY, 10);
 
     this.scene.tweens.add({
       targets: [this.effectText, this.effectIcon],
@@ -213,3 +316,4 @@ export class HUD {
     }
   }
 }
+
