@@ -20,6 +20,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private hallucinationEffectTimer!: Phaser.Time.TimerEvent | null;
   private lossOfControlActionTimer!: Phaser.Time.TimerEvent | null;
   private visualFlashOverlay!: Phaser.GameObjects.Graphics;
+  private sideEffectsEnabled: boolean = true;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -81,6 +82,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   getSideEffectState(): PillSideEffectState {
     return { ...this.sideEffectState };
+  }
+
+  disableSideEffects(): void {
+    this.sideEffectsEnabled = false;
+    this.sideEffectState.addictionLevel = 0;
+    this.sideEffectState.isHallucinating = false;
+    this.sideEffectState.isOutOfControl = false;
+    if (this.addictionDecayTimer) {
+      this.addictionDecayTimer.destroy();
+      this.addictionDecayTimer = null;
+    }
   }
 
   getAddictionLevel(): number {
@@ -241,6 +253,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   checkSideEffectTriggers(pillType: PillType): void {
+    if (!this.sideEffectsEnabled) return;
     const addictionIncrease = PillSideEffectConfig.ADDICTION_PER_PILL[pillType];
     this.addAddiction(addictionIncrease);
 

@@ -187,3 +187,44 @@ export interface SaveData {
   archive: ArchiveData;
 }
 
+export enum WinConditionType {
+  FLOOR_REACHED = 'floor_reached',
+  SCORE_REACHED = 'score_reached',
+  PILLS_COLLECTED = 'pills_collected',
+  SURVIVAL_TIME = 'survival_time',
+  GUARDS_AVOIDED = 'guards_avoided'
+}
+
+export interface ChallengeWinCondition {
+  type: WinConditionType;
+  value: number;
+}
+
+export interface ChallengeConfig {
+  id: string;
+  name: string;
+  createdAt: number;
+  floorDensity: number;
+  platformCountMin: number;
+  platformCountMax: number;
+  guardCount: number;
+  guardSpeedMultiplier: number;
+  guardDetectionRange: number;
+  guardSpawnInterval: number;
+  pillWeights: Record<string, number>;
+  pillSpawnInterval: number;
+  maxPills: number;
+  winCondition: ChallengeWinCondition;
+  loseOnGuardCollision: boolean;
+  loseOnFall: boolean;
+  timeLimitMs: number;
+  enableDayNightCycle: boolean;
+  enableFloorEvents: boolean;
+  enableSideEffects: boolean;
+  description: string;
+}
+
+export interface ChallengePresetList {
+  presets: ChallengeConfig[];
+}
+

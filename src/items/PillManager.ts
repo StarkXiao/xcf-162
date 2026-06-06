@@ -13,12 +13,19 @@ export class PillManager {
     shield: 1
   };
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, maxPills?: number) {
     this.scene = scene;
+    if (maxPills !== undefined) {
+      this.maxPills = maxPills;
+    }
     this.pills = this.scene.physics.add.group({
       allowGravity: false,
       immovable: true
     });
+  }
+
+  setMaxPills(max: number): void {
+    this.maxPills = max;
   }
 
   setPillWeights(weights: Record<string, number>): void {

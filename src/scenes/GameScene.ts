@@ -9,7 +9,7 @@ import { TimeManager } from '../utils/TimeManager';
 import { FloorEventManager } from '../utils/FloorEventManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
-import { TimeOfDay, FloorEvent } from '../types';
+import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType } from '../types';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -42,11 +42,16 @@ export class GameScene extends Phaser.Scene {
   private lastComboTime: number = 0;
   private comboCheckTimer!: Phaser.Time.TimerEvent;
 
+  private challengeConfig: ChallengeConfig | null = null;
+  private isChallengeMode: boolean = false;
+  private challengeStartTime: number = 0;
+  private challengeHudText!: Phaser.GameObjects.Text;
+
   constructor() {
     super('GameScene');
   }
 
-  create(): void {
+  create(data?: { challengeConfig?: ChallengeConfig }): void {
     this.audioManager = AudioManager.getInstance();
     this.saveManager = SaveManager.getInstance();
     this.isGameOver = false;
@@ -63,6 +68,12 @@ export class GameScene extends Phaser.Scene {
     this.noDamageFloorStreak = 0;
     this.maxNoDamageFloorsInGame = 0;
     this.lastComboTime = 0;
+
+    if (data?.challengeConfig) {
+      this.challengeConfig = data.challengeConfig;
+      this.isChallengeMode = true;
+      this.challengeStartTime = this.time.now;
+    }
 
     const initialTime = this.saveManager.getLastTimeOfDay();
     this.cameras.main.setBackgroundColor(TimeOfDayConfigs[initialTime].bgColor);
@@ -83,7 +94,13 @@ export class GameScene extends Phaser.Scene {
     const startY = firstPlatform.body!.position.y - GameConfig.playerHeight;
 
     this.player = new Player(this, startX, startY);
-    this.pillManager = new PillManager(this);
+
+    if (this.isChallengeMode && !this.challengeConfig?.enableSideEffects) {
+      (this.player as any).disableSideEffects?.();
+    }
+
+    const pillMax = this.isChallengeMode ? (this.challengeConfig?.maxPills || 8) : 8;
+    this.pillManager = new PillManager(this, pillMax);
 
     this.timeManager = new TimeManager(this, initialTime);
     this.floorEventManager = new FloorEventManager(this);
@@ -103,7 +120,171 @@ export class GameScene extends Phaser.Scene {
     this.setupManagers();
     this.applyTimeOfDaySettings();
 
+    if (this.isChallengeMode && this.challengeConfig) {
+      const initGuardCount = this.challengeConfig.guardCount || 0;
+      for (let i = 0; i < initGuardCount; i++) {
+        this.time.delayedCall(500 + i * 300, () => this.spawnGuard());
+      }
+      this.createChallengeHud();
+    }
+
     this.audioManager.playMusic();
+  }
+
+  private createChallengeHud(): void {
+    if (!this.challengeConfig) return;
+
+    const container = this.add.container(0, 0).setScrollFactor(0).setDepth(50);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x111133, 0.85);
+    bg.fillRoundedRect(5, 95, GameConfig.width - 10, 28, 6);
+    bg.lineStyle(1, 0xff6699, 0.6);
+    bg.strokeRoundedRect(5, 95, GameConfig.width - 10, 28, 6);
+
+    const label = this.add.text(15, 109, `🎯 ${this.challengeConfig.name}`, {
+      fontSize: '12px',
+      color: '#ff99cc',
+      fontStyle: 'bold'
+    }).setOrigin(0, 0.5);
+
+    this.challengeHudText = this.add.text(GameConfig.width - 15, 109, '', {
+      fontSize: '12px',
+      color: '#ffff66',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    container.add([bg, label, this.challengeHudText]);
+    this.updateChallengeHud();
+  }
+
+  private updateChallengeHud(): void {
+    if (!this.challengeConfig || !this.challengeHudText) return;
+    const cfg = this.challengeConfig;
+    let status = '';
+    switch (cfg.winCondition.type) {
+      case WinConditionType.FLOOR_REACHED:
+        status = `楼层 ${this.currentFloor}/${cfg.winCondition.value}F`;
+        break;
+      case WinConditionType.SCORE_REACHED:
+        status = `分数 ${this.score}/${cfg.winCondition.value}`;
+        break;
+      case WinConditionType.PILLS_COLLECTED:
+        status = `药片 ${this.pillCount}/${cfg.winCondition.value}`;
+        break;
+      case WinConditionType.SURVIVAL_TIME:
+        const elapsed = this.time.now - this.challengeStartTime;
+        const remain = Math.max(0, cfg.winCondition.value - elapsed);
+        status = `存活 ${Math.ceil(remain / 1000)}s`;
+        break;
+      case WinConditionType.GUARDS_AVOIDED:
+        status = `甩开保安 ${this.guards.length}/${cfg.winCondition.value}`;
+        break;
+    }
+    if (cfg.timeLimitMs > 0) {
+      const timeLeft = Math.max(0, cfg.timeLimitMs - (this.time.now - this.challengeStartTime));
+      status += ` | ⏱ ${Math.ceil(timeLeft / 1000)}s`;
+    }
+    this.challengeHudText.setText(status);
+  }
+
+  private checkChallengeWin(): boolean {
+    if (!this.isChallengeMode || !this.challengeConfig) return false;
+    const cfg = this.challengeConfig;
+    switch (cfg.winCondition.type) {
+      case WinConditionType.FLOOR_REACHED:
+        return this.currentFloor >= cfg.winCondition.value;
+      case WinConditionType.SCORE_REACHED:
+        return this.score >= cfg.winCondition.value;
+      case WinConditionType.PILLS_COLLECTED:
+        return this.pillCount >= cfg.winCondition.value;
+      case WinConditionType.SURVIVAL_TIME:
+        return (this.time.now - this.challengeStartTime) >= cfg.winCondition.value;
+      case WinConditionType.GUARDS_AVOIDED:
+        return this.guards.length >= cfg.winCondition.value;
+      default:
+        return false;
+    }
+  }
+
+  private checkChallengeTimeLimit(): boolean {
+    if (!this.isChallengeMode || !this.challengeConfig) return false;
+    if (this.challengeConfig.timeLimitMs <= 0) return false;
+    return (this.time.now - this.challengeStartTime) >= this.challengeConfig.timeLimitMs;
+  }
+
+  private challengeWin(): void {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
+    if (this.spawnTimer) this.spawnTimer.destroy();
+    if (this.pillTimer) this.pillTimer.destroy();
+    if (this.scoreTimer) this.scoreTimer.destroy();
+    if (this.comboCheckTimer) this.comboCheckTimer.destroy();
+
+    this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
+    this.timeManager?.pause?.();
+    this.saveGameState();
+    this.audioManager.stopMusic();
+
+    const winOverlay = this.add.graphics().setDepth(200);
+    winOverlay.fillStyle(0x000000, 0.85);
+    winOverlay.fillRect(0, 0, GameConfig.width, GameConfig.height);
+
+    const panel = this.add.graphics().setDepth(201);
+    const pw = 360;
+    const ph = 300;
+    const px = (GameConfig.width - pw) / 2;
+    const py = (GameConfig.height - ph) / 2;
+    panel.fillStyle(0x151535, 1);
+    panel.fillRoundedRect(px, py, pw, ph, 14);
+    panel.lineStyle(3, 0x00ff88, 1);
+    panel.strokeRoundedRect(px, py, pw, ph, 14);
+
+    this.add.text(GameConfig.width / 2, py + 45, '🏆 挑战成功！', {
+      fontSize: '32px',
+      color: '#00ff88',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(202);
+
+    this.add.text(GameConfig.width / 2, py + 90, this.challengeConfig?.name || '', {
+      fontSize: '18px',
+      color: '#ffcc66',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(202);
+
+    const statY = py + 130;
+    const stats = [
+      { label: '最终楼层', value: `${this.currentFloor}F`, color: '#66ccff' },
+      { label: '最终得分', value: `${this.score}`, color: '#ffcc00' },
+      { label: '收集药片', value: `${this.pillCount}`, color: '#ff66ff' },
+      { label: '最高连击', value: `${this.maxComboInGame}`, color: '#ff9966' }
+    ];
+    stats.forEach((s, i) => {
+      this.add.text(px + 30, statY + i * 28, s.label, {
+        fontSize: '14px',
+        color: '#aabbcc'
+      }).setOrigin(0, 0).setDepth(202);
+      this.add.text(px + pw - 30, statY + i * 28, s.value, {
+        fontSize: '14px',
+        color: s.color,
+        fontStyle: 'bold'
+      }).setOrigin(1, 0).setDepth(202);
+    });
+
+    const backBtn = this.add.text(GameConfig.width / 2, py + ph - 40, '返回菜单', {
+      fontSize: '18px',
+      color: '#ffffff',
+      backgroundColor: '#00aa66',
+      padding: { left: 30, right: 30, top: 10, bottom: 10 },
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(202);
+
+    backBtn.on('pointerover', () => backBtn.setBackgroundColor('#00cc77'));
+    backBtn.on('pointerout', () => backBtn.setBackgroundColor('#00aa66'));
+    backBtn.on('pointerdown', () => {
+      this.scene.start('MenuScene');
+    });
   }
 
   private createBackground(): void {
@@ -148,11 +329,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlatforms(): void {
+    const floorGap = this.isChallengeMode
+      ? Math.round(GameConfig.floorGap / (this.challengeConfig?.floorDensity || 1))
+      : GameConfig.floorGap;
+
+    const platMin = this.isChallengeMode
+      ? (this.challengeConfig?.platformCountMin || 2)
+      : 2;
+    const platMax = this.isChallengeMode
+      ? (this.challengeConfig?.platformCountMax || 3)
+      : 3;
+
     for (let floor = 0; floor < GameConfig.maxFloors; floor++) {
       const platformGroup = this.physics.add.staticGroup();
-      const y = GameConfig.height - 100 - floor * GameConfig.floorGap;
+      const y = GameConfig.height - 100 - floor * floorGap;
 
-      const platformCount = Phaser.Math.Between(2, 3);
+      const platformCount = Phaser.Math.Between(platMin, platMax);
       const positions: number[] = [];
       const minSpacing = GameConfig.platformWidth + 50;
 
@@ -213,14 +405,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupManagers(): void {
-    this.timeManager.start((newTime: TimeOfDay, _oldTime: TimeOfDay) => {
-      this.onTimeOfDayChange(newTime);
-    });
+    if (!this.isChallengeMode || this.challengeConfig?.enableDayNightCycle) {
+      this.timeManager.start((newTime: TimeOfDay, _oldTime: TimeOfDay) => {
+        this.onTimeOfDayChange(newTime);
+      });
+    }
 
-    this.floorEventManager.setCallbacks(
-      (event: FloorEvent) => this.onEventStart(event),
-      (event: FloorEvent) => this.onEventEnd(event)
-    );
+    if (!this.isChallengeMode || this.challengeConfig?.enableFloorEvents) {
+      this.floorEventManager.setCallbacks(
+        (event: FloorEvent) => this.onEventStart(event),
+        (event: FloorEvent) => this.onEventEnd(event)
+      );
+    }
   }
 
   private resetSpawnTimer(): void {
@@ -228,9 +424,16 @@ export class GameScene extends Phaser.Scene {
       this.spawnTimer.destroy();
     }
 
-    const timeConfig = this.timeManager.getConfig();
-    const eventMultiplier = this.floorEventManager.getEventEffect('guardSpawn');
-    const delay = GameConfig.guardSpawnInterval / (timeConfig.guardSpawnMultiplier * eventMultiplier);
+    const eventMultiplier = this.floorEventManager?.getEventEffect?.('guardSpawn') || 1;
+
+    let delay: number;
+    if (this.isChallengeMode) {
+      delay = this.challengeConfig?.guardSpawnInterval || GameConfig.guardSpawnInterval;
+      delay = delay / eventMultiplier;
+    } else {
+      const timeConfig = this.timeManager.getConfig();
+      delay = GameConfig.guardSpawnInterval / (timeConfig.guardSpawnMultiplier * eventMultiplier);
+    }
 
     this.spawnTimer = this.time.addEvent({
       delay: delay,
@@ -246,9 +449,16 @@ export class GameScene extends Phaser.Scene {
       this.pillTimer.destroy();
     }
 
-    const timeConfig = this.timeManager.getConfig();
-    const eventMultiplier = this.floorEventManager.getEventEffect('pillSpawn');
-    const delay = GameConfig.pillSpawnInterval / (timeConfig.pillSpawnMultiplier * eventMultiplier);
+    const eventMultiplier = this.floorEventManager?.getEventEffect?.('pillSpawn') || 1;
+
+    let delay: number;
+    if (this.isChallengeMode) {
+      delay = this.challengeConfig?.pillSpawnInterval || GameConfig.pillSpawnInterval;
+      delay = delay / eventMultiplier;
+    } else {
+      const timeConfig = this.timeManager.getConfig();
+      delay = GameConfig.pillSpawnInterval / (timeConfig.pillSpawnMultiplier * eventMultiplier);
+    }
 
     this.pillTimer = this.time.addEvent({
       delay: delay,
@@ -259,11 +469,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyTimeOfDaySettings(): void {
+    if (this.isChallengeMode && !this.challengeConfig?.enableDayNightCycle) {
+      if (this.challengeConfig?.pillWeights) {
+        this.pillManager.setPillWeights(this.challengeConfig.pillWeights);
+      }
+      return;
+    }
+
     const timeConfig = this.timeManager.getConfig();
     const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
 
     this.cameras.main.setBackgroundColor(timeConfig.bgColor);
-    this.pillManager.setPillWeights(timeConfig.pillWeights);
+
+    if (this.isChallengeMode && this.challengeConfig?.pillWeights) {
+      this.pillManager.setPillWeights(this.challengeConfig.pillWeights);
+    } else {
+      this.pillManager.setPillWeights(timeConfig.pillWeights);
+    }
 
     this.guards.forEach(guard => {
       guard.setTimeMultipliers(
@@ -312,17 +534,29 @@ export class GameScene extends Phaser.Scene {
   private spawnGuard(): void {
     if (this.isGameOver) return;
 
-    const timeConfig = this.timeManager.getConfig();
-    const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
     const spawnY = this.cameraTargetY - 100;
     const spawnX = Phaser.Math.Between(60, GameConfig.width - 60);
+
+    let speedMul: number;
+    let detectRange: number;
+
+    if (this.isChallengeMode) {
+      speedMul = this.challengeConfig?.guardSpeedMultiplier || 1;
+      detectRange = this.challengeConfig?.guardDetectionRange || 150;
+    } else {
+      const timeConfig = this.timeManager.getConfig();
+      const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
+      speedMul = timeConfig.guardSpeedMultiplier;
+      detectRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier);
+    }
+
     const guard = new Guard(
       this,
       spawnX,
       spawnY,
       this.player,
-      timeConfig.guardSpeedMultiplier,
-      Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier)
+      speedMul,
+      detectRange
     );
     this.guards.push(guard);
 
@@ -421,6 +655,10 @@ export class GameScene extends Phaser.Scene {
       });
       this.noDamageFloorStreak = 0;
       this.hud.updateNoDamageFloors(0);
+      return;
+    }
+
+    if (this.isChallengeMode && this.challengeConfig && !this.challengeConfig.loseOnGuardCollision) {
       return;
     }
 
@@ -529,15 +767,36 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (this.isGameOver) return;
 
+    if (this.isChallengeMode) {
+      if (this.checkChallengeWin()) {
+        this.challengeWin();
+        return;
+      }
+      if (this.checkChallengeTimeLimit()) {
+        this.gameOver();
+        return;
+      }
+      this.updateChallengeHud();
+    }
+
     this.player.update(this.keys, delta);
 
-    const eventGuardSpeedMultiplier = this.floorEventManager.getEventEffect('guardSpeed');
-    const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
-    const timeConfig = this.timeManager.getConfig();
-    const effectiveDetectionRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier);
+    const eventGuardSpeedMultiplier = this.floorEventManager?.getEventEffect?.('guardSpeed') || 1;
+    const eventDetectionMultiplier = this.floorEventManager?.getEventEffect?.('guardDetection') || 1;
+
+    let guardSpeedMul: number;
+    let effectiveDetectionRange: number;
+    if (this.isChallengeMode) {
+      guardSpeedMul = this.challengeConfig?.guardSpeedMultiplier || 1;
+      effectiveDetectionRange = this.challengeConfig?.guardDetectionRange || 150;
+    } else {
+      const timeConfig = this.timeManager.getConfig();
+      guardSpeedMul = timeConfig.guardSpeedMultiplier;
+      effectiveDetectionRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier);
+    }
 
     this.guards.forEach(guard => {
-      guard.setTimeMultipliers(timeConfig.guardSpeedMultiplier, effectiveDetectionRange);
+      guard.setTimeMultipliers(guardSpeedMul, effectiveDetectionRange);
       guard.update(delta, this.player.guardSlowMultiplier, eventGuardSpeedMultiplier);
     });
 
@@ -549,18 +808,23 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.scrollY = this.cameraTargetY;
 
     if (this.player.y > this.cameraTargetY + GameConfig.height + 100) {
-      this.gameOver();
+      if (!this.isChallengeMode || this.challengeConfig?.loseOnFall) {
+        this.gameOver();
+      }
     }
 
-    const baseLightAlpha = timeConfig.lightOpacity;
-    this.neonLights.forEach((light, index) => {
-      const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + baseLightAlpha;
-      light.setAlpha(pulse * 0.6);
-    });
+    if (!this.isChallengeMode || this.challengeConfig?.enableDayNightCycle) {
+      const timeConfig = this.timeManager.getConfig();
+      const baseLightAlpha = timeConfig.lightOpacity;
+      this.neonLights.forEach((light, index) => {
+        const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + baseLightAlpha;
+        light.setAlpha(pulse * 0.6);
+      });
 
-    this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
+      this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
+    }
 
-    if (this.floorEventManager.hasActiveEvent()) {
+    if ((!this.isChallengeMode || this.challengeConfig?.enableFloorEvents) && this.floorEventManager.hasActiveEvent()) {
       this.hud.updateEventProgress(this.floorEventManager.getEventProgress());
     }
 
