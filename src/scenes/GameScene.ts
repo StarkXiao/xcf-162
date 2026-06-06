@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, TimeOfDayConfigs } from '../config/GameConfig';
+import { GameConfig, PillType, TimeOfDayConfigs, ShopItemConfigs } from '../config/GameConfig';
 import { Player } from '../characters/Player';
 import { Guard } from '../enemies/Guard';
 import { PillManager } from '../items/PillManager';
@@ -11,7 +11,7 @@ import { PlatformTrapManager } from '../utils/PlatformTrapManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
-import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType } from '../types';
+import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats } from '../types';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -45,6 +45,12 @@ export class GameScene extends Phaser.Scene {
   private maxNoDamageFloorsInGame: number = 0;
   private lastComboTime: number = 0;
   private comboCheckTimer!: Phaser.Time.TimerEvent;
+  private shopPurchaseStats: ShopPurchaseStats = {
+    shieldsPurchased: 0,
+    slowPulsesPurchased: 0,
+    emergencyBouncesPurchased: 0,
+    totalPillsSpent: 0
+  };
 
   private challengeConfig: ChallengeConfig | null = null;
   private isChallengeMode: boolean = false;
@@ -74,6 +80,12 @@ export class GameScene extends Phaser.Scene {
     this.noDamageFloorStreak = 0;
     this.maxNoDamageFloorsInGame = 0;
     this.lastComboTime = 0;
+    this.shopPurchaseStats = {
+      shieldsPurchased: 0,
+      slowPulsesPurchased: 0,
+      emergencyBouncesPurchased: 0,
+      totalPillsSpent: 0
+    };
 
     if (data?.challengeConfig) {
       this.challengeConfig = data.challengeConfig;
@@ -119,6 +131,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
     this.hud.updateCombo(0);
     this.hud.updateNoDamageFloors(0);
+    this.hud.setShopPurchaseCallback((itemType: ShopItemType) => this.onShopPurchase(itemType));
 
     this.events.on('playerDoubleJump', this.onPlayerDoubleJump, this);
 
@@ -694,6 +707,36 @@ export class GameScene extends Phaser.Scene {
     this.achievementManager.updateInGameStat('score', this.score, true);
   }
 
+  private onShopPurchase(itemType: ShopItemType): boolean {
+    const config = ShopItemConfigs[itemType];
+    if (this.pillCount < config.cost) return false;
+
+    this.pillCount -= config.cost;
+    this.shopPurchaseStats.totalPillsSpent += config.cost;
+    this.hud.updatePills(this.pillCount);
+    this.audioManager.play('pill');
+
+    switch (itemType) {
+      case ShopItemType.SHIELD:
+        this.shopPurchaseStats.shieldsPurchased++;
+        this.player.activateShopShield(config.duration || 10000);
+        this.hud.showShield();
+        break;
+      case ShopItemType.SLOW_PULSE:
+        this.shopPurchaseStats.slowPulsesPurchased++;
+        this.player.activateShopSlowPulse(config.duration || 5000);
+        break;
+      case ShopItemType.EMERGENCY_BOUNCE:
+        this.shopPurchaseStats.emergencyBouncesPurchased++;
+        this.player.emergencyBounce(GameConfig.shopEmergencyBounceForce);
+        break;
+    }
+
+    this.achievementManager.updateInGameStat('shopPurchases', this.shopPurchaseStats, true);
+
+    return true;
+  }
+
   private onGuardCollision(): void {
     if (this.isGameOver) return;
 
@@ -749,7 +792,11 @@ export class GameScene extends Phaser.Scene {
         savedHighScore: recordFlags.savedHighScore,
         maxAddiction: recordFlags.sideEffectStats.maxAddiction,
         hallucinations: recordFlags.sideEffectStats.hallucinations,
-        lossOfControl: recordFlags.sideEffectStats.lossOfControl
+        lossOfControl: recordFlags.sideEffectStats.lossOfControl,
+        shopShields: this.shopPurchaseStats.shieldsPurchased,
+        shopSlowPulses: this.shopPurchaseStats.slowPulsesPurchased,
+        shopBounces: this.shopPurchaseStats.emergencyBouncesPurchased,
+        shopPillsSpent: this.shopPurchaseStats.totalPillsSpent
       });
     });
   }
@@ -793,7 +840,11 @@ export class GameScene extends Phaser.Scene {
       totalAddictionLevel: (saveData.totalAddictionLevel || 0) + sideEffectStats.maxAddiction,
       maxAddictionReached: Math.max(saveData.maxAddictionReached || 0, sideEffectStats.maxAddiction),
       totalHallucinationsTriggered: (saveData.totalHallucinationsTriggered || 0) + sideEffectStats.hallucinations,
-      totalLossOfControlTriggered: (saveData.totalLossOfControlTriggered || 0) + sideEffectStats.lossOfControl
+      totalLossOfControlTriggered: (saveData.totalLossOfControlTriggered || 0) + sideEffectStats.lossOfControl,
+      totalShieldsPurchased: (saveData.totalShieldsPurchased || 0) + this.shopPurchaseStats.shieldsPurchased,
+      totalSlowPulsesPurchased: (saveData.totalSlowPulsesPurchased || 0) + this.shopPurchaseStats.slowPulsesPurchased,
+      totalEmergencyBouncesPurchased: (saveData.totalEmergencyBouncesPurchased || 0) + this.shopPurchaseStats.emergencyBouncesPurchased,
+      totalPillsSpentInShop: (saveData.totalPillsSpentInShop || 0) + this.shopPurchaseStats.totalPillsSpent
     });
 
     this.saveManager.savePillTrainingScore({

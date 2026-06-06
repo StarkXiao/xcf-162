@@ -1,4 +1,4 @@
-import { TimeOfDay, TimeOfDayConfig, FloorEventType, PlatformTrapType, PlatformTrapConfig } from '../types';
+import { TimeOfDay, TimeOfDayConfig, FloorEventType, PlatformTrapType, PlatformTrapConfig, ShopItemType, ShopItemConfig } from '../types';
 
 export enum GuardChaseState {
   PATROL = 'patrol',
@@ -113,7 +113,38 @@ export class GameConfig {
     { floor: 75, guardSpawnMul: 2.0, guardSpeedMul: 1.6, pillSpawnMul: 0.8 },
     { floor: 100, guardSpawnMul: 2.5, guardSpeedMul: 1.8, pillSpawnMul: 0.7 }
   ];
+
+  static readonly shopEmergencyBounceForce: number = -700;
 }
+
+export const ShopItemConfigs: Record<ShopItemType, ShopItemConfig> = {
+  [ShopItemType.SHIELD]: {
+    type: ShopItemType.SHIELD,
+    name: '护盾',
+    description: '可抵挡一次保安攻击',
+    icon: '🛡',
+    cost: 3,
+    color: 0xff00ff,
+    duration: 10000
+  },
+  [ShopItemType.SLOW_PULSE]: {
+    type: ShopItemType.SLOW_PULSE,
+    name: '减速脉冲',
+    description: '所有保安减速5秒',
+    icon: '❄',
+    cost: 2,
+    color: 0x0088ff,
+    duration: 5000
+  },
+  [ShopItemType.EMERGENCY_BOUNCE]: {
+    type: ShopItemType.EMERGENCY_BOUNCE,
+    name: '紧急弹跳',
+    description: '立即向上大幅弹跳',
+    icon: '⬆',
+    cost: 2,
+    color: 0x00ff88
+  }
+};
 
 export enum PillType {
   SPEED = 'speed',

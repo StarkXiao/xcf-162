@@ -425,6 +425,51 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  activateShopShield(duration: number): void {
+    this.hasShield = true;
+    if (this.shieldTimer) this.shieldTimer.destroy();
+    this.shieldTimer = this.scene.time.delayedCall(duration, () => {
+      this.hasShield = false;
+    });
+  }
+
+  activateShopSlowPulse(duration: number): void {
+    this.guardSlowMultiplier = 0.3;
+    if (this.slowTimer) this.slowTimer.destroy();
+    this.slowTimer = this.scene.time.delayedCall(duration, () => {
+      this.guardSlowMultiplier = 1;
+    });
+  }
+
+  emergencyBounce(force: number): void {
+    this.setVelocityY(force);
+    this.isGrounded = false;
+    this.jumpCount = 1;
+    this.canDoubleJump = true;
+    this.scene.tweens.add({
+      targets: this,
+      scaleY: { from: 1, to: 1.3 },
+      duration: 120,
+      yoyo: true
+    });
+
+    const particles = this.scene.add.graphics();
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const x = this.x + Math.cos(angle) * 25;
+      const y = this.y + Math.sin(angle) * 15;
+      particles.fillStyle(0x00ff88, 0.9);
+      particles.fillCircle(x, y, 5);
+    }
+    this.scene.tweens.add({
+      targets: particles,
+      alpha: 0,
+      scale: 2.5,
+      duration: 400,
+      onComplete: () => particles.destroy()
+    });
+  }
+
   destroy(fromScene?: boolean): void {
     if (this.speedTimer) this.speedTimer.destroy();
     if (this.slowTimer) this.slowTimer.destroy();

@@ -46,7 +46,13 @@ export class SaveManager {
       lossOfControl: 0,
       doubleJumps: 0,
       guardHits: 0,
-      perfectJumps: 0
+      perfectJumps: 0,
+      shopPurchases: {
+        shieldsPurchased: 0,
+        slowPulsesPurchased: 0,
+        emergencyBouncesPurchased: 0,
+        totalPillsSpent: 0
+      }
     },
     stats: {
       totalDoubleJumps: 0,
@@ -75,6 +81,10 @@ export class SaveManager {
     maxAddictionReached: 0,
     totalHallucinationsTriggered: 0,
     totalLossOfControlTriggered: 0,
+    totalShieldsPurchased: 0,
+    totalSlowPulsesPurchased: 0,
+    totalEmergencyBouncesPurchased: 0,
+    totalPillsSpentInShop: 0,
     archive: {
       unlockedCharacters: [],
       unlockedRumors: [],
@@ -344,6 +354,22 @@ export class SaveManager {
 
   getTotalLossOfControlTriggered(): number {
     return this.getSaveData().totalLossOfControlTriggered || 0;
+  }
+
+  getTotalShieldsPurchased(): number {
+    return this.getSaveData().totalShieldsPurchased || 0;
+  }
+
+  getTotalSlowPulsesPurchased(): number {
+    return this.getSaveData().totalSlowPulsesPurchased || 0;
+  }
+
+  getTotalEmergencyBouncesPurchased(): number {
+    return this.getSaveData().totalEmergencyBouncesPurchased || 0;
+  }
+
+  getTotalPillsSpentInShop(): number {
+    return this.getSaveData().totalPillsSpentInShop || 0;
   }
 
   savePillTrainingScore(score: Partial<PillTrainingScore>): void {

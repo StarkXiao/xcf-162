@@ -17,6 +17,10 @@ export class GameOverScene extends Phaser.Scene {
   private maxAddiction: number = 0;
   private hallucinations: number = 0;
   private lossOfControl: number = 0;
+  private shopShields: number = 0;
+  private shopSlowPulses: number = 0;
+  private shopBounces: number = 0;
+  private shopPillsSpent: number = 0;
 
   constructor() {
     super('GameOverScene');
@@ -35,6 +39,10 @@ export class GameOverScene extends Phaser.Scene {
     maxAddiction?: number;
     hallucinations?: number;
     lossOfControl?: number;
+    shopShields?: number;
+    shopSlowPulses?: number;
+    shopBounces?: number;
+    shopPillsSpent?: number;
   }): void {
     this.audioManager = AudioManager.getInstance();
     this.finalScore = data.score;
@@ -47,6 +55,10 @@ export class GameOverScene extends Phaser.Scene {
     this.maxAddiction = data.maxAddiction || 0;
     this.hallucinations = data.hallucinations || 0;
     this.lossOfControl = data.lossOfControl || 0;
+    this.shopShields = data.shopShields || 0;
+    this.shopSlowPulses = data.shopSlowPulses || 0;
+    this.shopBounces = data.shopBounces || 0;
+    this.shopPillsSpent = data.shopPillsSpent || 0;
   }
 
   create(): void {
@@ -160,6 +172,46 @@ export class GameOverScene extends Phaser.Scene {
           color: '#ff0066'
         }).setOrigin(0.5);
         nextY += 22;
+      }
+    }
+
+    if (this.shopShields > 0 || this.shopSlowPulses > 0 || this.shopBounces > 0 || this.shopPillsSpent > 0) {
+      nextY += 10;
+      this.add.text(GameConfig.width / 2, nextY, '—— 商店使用 ——', {
+        fontSize: '14px',
+        color: '#6666ff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+      nextY += 24;
+
+      if (this.shopShields > 0) {
+        this.add.text(GameConfig.width / 2, nextY, `🛡 护盾: ${this.shopShields}次`, {
+          fontSize: '13px',
+          color: '#ff00ff'
+        }).setOrigin(0.5);
+        nextY += 20;
+      }
+      if (this.shopSlowPulses > 0) {
+        this.add.text(GameConfig.width / 2, nextY, `❄ 减速脉冲: ${this.shopSlowPulses}次`, {
+          fontSize: '13px',
+          color: '#0088ff'
+        }).setOrigin(0.5);
+        nextY += 20;
+      }
+      if (this.shopBounces > 0) {
+        this.add.text(GameConfig.width / 2, nextY, `⬆ 紧急弹跳: ${this.shopBounces}次`, {
+          fontSize: '13px',
+          color: '#00ff88'
+        }).setOrigin(0.5);
+        nextY += 20;
+      }
+      if (this.shopPillsSpent > 0) {
+        this.add.text(GameConfig.width / 2, nextY, `💊 消耗药片: ${this.shopPillsSpent}`, {
+          fontSize: '13px',
+          color: '#ffff66',
+          fontStyle: 'bold'
+        }).setOrigin(0.5);
+        nextY += 20;
       }
     }
     nextY += 20;

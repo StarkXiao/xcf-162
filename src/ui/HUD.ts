@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { GameConfig, PillType, PillColors, TimeOfDayConfigs, PillSideEffectConfig } from '../config/GameConfig';
+import { GameConfig, PillType, PillColors, TimeOfDayConfigs, PillSideEffectConfig, ShopItemConfigs } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 import { Player } from '../characters/Player';
-import { TimeOfDay, FloorEvent } from '../types';
+import { TimeOfDay, FloorEvent, ShopItemType } from '../types';
 
 export class HUD {
   private scene: Phaser.Scene;
@@ -39,6 +39,14 @@ export class HUD {
   private currentAddictionLevel: number = 0;
   private isHallucinating: boolean = false;
   private isOutOfControl: boolean = false;
+
+  private shopBtn!: Phaser.GameObjects.Text;
+  private shopPanel!: Phaser.GameObjects.Container;
+  private shopPanelBg!: Phaser.GameObjects.Graphics;
+  private shopPanelVisible: boolean = false;
+  private onShopPurchaseCallback: ((itemType: ShopItemType) => boolean) | null = null;
+  private currentPillCount: number = 0;
+  private shopItemButtons: Map<ShopItemType, Phaser.GameObjects.Text> = new Map();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -187,6 +195,26 @@ export class HUD {
       this.sfxBtn.setColor(enabled ? '#ffffff' : '#666666');
       this.audioManager.play('select');
     });
+
+    this.shopBtn = this.scene.add.text(GameConfig.width - 55, GameConfig.height - 40 + scrollY, '🛒', {
+      fontSize: '22px',
+      color: '#ffffff',
+      backgroundColor: '#333366',
+      padding: { left: 10, right: 10, top: 6, bottom: 6 }
+    }).setScrollFactor(0).setDepth(101).setInteractive({ useHandCursor: true });
+
+    this.shopBtn.on('pointerover', () => {
+      this.shopBtn.setBackgroundColor('#4444aa');
+    });
+    this.shopBtn.on('pointerout', () => {
+      this.shopBtn.setBackgroundColor('#333366');
+    });
+    this.shopBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.toggleShopPanel();
+    });
+
+    this.createShopPanel();
   }
 
   private setupEvents(): void {
@@ -345,9 +373,7 @@ export class HUD {
     });
   }
 
-  updatePills(count: number): void {
-    this.pillText.setText(count.toString());
-  }
+
 
   updateTimeOfDay(time: TimeOfDay, progress: number): void {
     const config = TimeOfDayConfigs[time];
@@ -463,7 +489,7 @@ export class HUD {
     }
   }
 
-  private showShield(): void {
+  showShield(): void {
     this.shieldIcon.setVisible(true);
     this.shieldIcon.clear();
     this.shieldIcon.lineStyle(2, 0xff00ff, 0.8);
@@ -632,6 +658,206 @@ export class HUD {
       this.sideEffectStatusText.setY(180 + scrollY + wobble);
       this.sideEffectStatusText.setColor(`hsl(${colorHue}, 100%, 60%)`);
     }
+
+    this.updateShopItemButtons();
+  }
+
+  private createShopPanel(): void {
+    const scrollY = this.scene.cameras.main.scrollY;
+    this.shopPanel = this.scene.add.container(0, 0).setScrollFactor(0).setDepth(150);
+    this.shopPanel.setVisible(false);
+
+    const panelW = 320;
+    const panelH = 280;
+    const panelX = (GameConfig.width - panelW) / 2;
+    const panelY = (GameConfig.height - panelH) / 2 + scrollY;
+
+    this.shopPanelBg = this.scene.add.graphics();
+    this.shopPanelBg.fillStyle(0x0a0a20, 0.97);
+    this.shopPanelBg.fillRoundedRect(panelX, panelY, panelW, panelH, 12);
+    this.shopPanelBg.lineStyle(2, 0x6666ff, 0.9);
+    this.shopPanelBg.strokeRoundedRect(panelX, panelY, panelW, panelH, 12);
+
+    const title = this.scene.add.text(GameConfig.width / 2, panelY + 25, '🏪 局内商店', {
+      fontSize: '20px',
+      color: '#ffff66',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    const closeBtn = this.scene.add.text(panelX + panelW - 20, panelY + 15, '✕', {
+      fontSize: '18px',
+      color: '#ff6666',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.hideShopPanel();
+    });
+
+    const pillBalanceLabel = this.scene.add.text(panelX + 15, panelY + 55, '药片余额:', {
+      fontSize: '14px',
+      color: '#88ff88',
+      fontStyle: 'bold'
+    });
+
+    const pillBalanceValue = this.scene.add.text(panelX + 90, panelY + 55, '0', {
+      fontSize: '14px',
+      color: '#00ff88',
+      fontStyle: 'bold'
+    });
+    pillBalanceValue.setName('pillBalance');
+
+    this.shopPanel.add([this.shopPanelBg, title, closeBtn, pillBalanceLabel, pillBalanceValue]);
+
+    const items = [ShopItemType.SHIELD, ShopItemType.SLOW_PULSE, ShopItemType.EMERGENCY_BOUNCE];
+    items.forEach((itemType, i) => {
+      const config = ShopItemConfigs[itemType];
+      const itemY = panelY + 90 + i * 55;
+
+      const itemBg = this.scene.add.graphics();
+      itemBg.fillStyle(0x1a1a3a, 1);
+      itemBg.fillRoundedRect(panelX + 10, itemY, panelW - 20, 48, 6);
+      itemBg.lineStyle(1, config.color, 0.5);
+      itemBg.strokeRoundedRect(panelX + 10, itemY, panelW - 20, 48, 6);
+
+      const icon = this.scene.add.text(panelX + 22, itemY + 24, config.icon, {
+        fontSize: '22px'
+      }).setOrigin(0, 0.5);
+
+      const nameLabel = this.scene.add.text(panelX + 52, itemY + 12, config.name, {
+        fontSize: '14px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      });
+
+      const descLabel = this.scene.add.text(panelX + 52, itemY + 30, config.description, {
+        fontSize: '11px',
+        color: '#aaaaaa'
+      });
+
+      const buyBtn = this.scene.add.text(panelX + panelW - 20, itemY + 24, `💊${config.cost}`, {
+        fontSize: '14px',
+        color: '#ffffff',
+        backgroundColor: '#226622',
+        padding: { left: 8, right: 8, top: 5, bottom: 5 },
+        fontStyle: 'bold'
+      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+      buyBtn.on('pointerover', () => {
+        if (this.currentPillCount >= config.cost) {
+          buyBtn.setBackgroundColor('#33aa33');
+        }
+      });
+      buyBtn.on('pointerout', () => {
+        buyBtn.setBackgroundColor(this.currentPillCount >= config.cost ? '#226622' : '#552222');
+      });
+      buyBtn.on('pointerdown', () => {
+        if (this.currentPillCount >= config.cost) {
+          this.audioManager.play('select');
+          this.tryPurchase(itemType);
+        } else {
+          this.audioManager.play('gameover');
+        }
+      });
+
+      this.shopItemButtons.set(itemType, buyBtn);
+      this.shopPanel.add([itemBg, icon, nameLabel, descLabel, buyBtn]);
+    });
+
+    this.updateShopItemButtons();
+  }
+
+  private tryPurchase(itemType: ShopItemType): void {
+    if (this.onShopPurchaseCallback) {
+      const success = this.onShopPurchaseCallback(itemType);
+      if (success) {
+        this.showShopPurchaseFeedback(itemType);
+      }
+    }
+  }
+
+  private showShopPurchaseFeedback(itemType: ShopItemType): void {
+    const config = ShopItemConfigs[itemType];
+    const scrollY = this.scene.cameras.main.scrollY;
+    const popup = this.scene.add.text(GameConfig.width / 2, GameConfig.height / 2 + scrollY, `✨ ${config.name} 已激活!`, {
+      fontSize: '24px',
+      color: `#${config.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(160);
+
+    this.scene.tweens.add({
+      targets: popup,
+      y: '-=80',
+      alpha: 0,
+      scale: 1.3,
+      duration: 900,
+      ease: 'Cubic.easeOut',
+      onComplete: () => popup.destroy()
+    });
+  }
+
+  private updateShopItemButtons(): void {
+    this.shopItemButtons.forEach((btn, itemType) => {
+      const config = ShopItemConfigs[itemType];
+      const canAfford = this.currentPillCount >= config.cost;
+      btn.setBackgroundColor(canAfford ? '#226622' : '#552222');
+      btn.setColor(canAfford ? '#ffffff' : '#888888');
+    });
+
+    if (this.shopPanel && this.shopPanel.visible) {
+      const balanceText = this.shopPanel.getByName('pillBalance') as Phaser.GameObjects.Text;
+      if (balanceText) {
+        balanceText.setText(this.currentPillCount.toString());
+      }
+    }
+  }
+
+  toggleShopPanel(): void {
+    if (this.shopPanelVisible) {
+      this.hideShopPanel();
+    } else {
+      this.showShopPanel();
+    }
+  }
+
+  showShopPanel(): void {
+    if (!this.shopPanel) return;
+    this.shopPanelVisible = true;
+    this.shopPanel.setVisible(true);
+    this.shopPanel.setAlpha(0);
+    this.scene.tweens.add({
+      targets: this.shopPanel,
+      alpha: 1,
+      scale: { from: 0.85, to: 1 },
+      duration: 250,
+      ease: 'Back.easeOut'
+    });
+    this.updateShopItemButtons();
+  }
+
+  hideShopPanel(): void {
+    if (!this.shopPanel) return;
+    this.shopPanelVisible = false;
+    this.scene.tweens.add({
+      targets: this.shopPanel,
+      alpha: 0,
+      scale: 0.85,
+      duration: 200,
+      ease: 'Cubic.easeIn',
+      onComplete: () => this.shopPanel.setVisible(false)
+    });
+  }
+
+  setShopPurchaseCallback(callback: (itemType: ShopItemType) => boolean): void {
+    this.onShopPurchaseCallback = callback;
+  }
+
+  updatePills(count: number): void {
+    this.pillText.setText(count.toString());
+    this.currentPillCount = count;
+    this.updateShopItemButtons();
   }
 }
 

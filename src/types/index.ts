@@ -284,6 +284,29 @@ export interface Achievement {
   unlockHint: string;
 }
 
+export enum ShopItemType {
+  SHIELD = 'shield',
+  SLOW_PULSE = 'slow_pulse',
+  EMERGENCY_BOUNCE = 'emergency_bounce'
+}
+
+export interface ShopItemConfig {
+  type: ShopItemType;
+  name: string;
+  description: string;
+  icon: string;
+  cost: number;
+  color: number;
+  duration?: number;
+}
+
+export interface ShopPurchaseStats {
+  shieldsPurchased: number;
+  slowPulsesPurchased: number;
+  emergencyBouncesPurchased: number;
+  totalPillsSpent: number;
+}
+
 export interface InGameStats {
   score: number;
   floor: number;
@@ -296,6 +319,7 @@ export interface InGameStats {
   doubleJumps: number;
   guardHits: number;
   perfectJumps: number;
+  shopPurchases: ShopPurchaseStats;
 }
 
 export interface AchievementData {
@@ -329,6 +353,10 @@ export interface SaveData {
   maxAddictionReached: number;
   totalHallucinationsTriggered: number;
   totalLossOfControlTriggered: number;
+  totalShieldsPurchased: number;
+  totalSlowPulsesPurchased: number;
+  totalEmergencyBouncesPurchased: number;
+  totalPillsSpentInShop: number;
   archive: ArchiveData;
   achievements: AchievementData;
 }

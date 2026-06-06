@@ -52,7 +52,13 @@ export class AchievementManager {
       lossOfControl: 0,
       doubleJumps: 0,
       guardHits: 0,
-      perfectJumps: 0
+      perfectJumps: 0,
+      shopPurchases: {
+        shieldsPurchased: 0,
+        slowPulsesPurchased: 0,
+        emergencyBouncesPurchased: 0,
+        totalPillsSpent: 0
+      }
     };
   }
 
