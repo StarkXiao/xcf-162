@@ -9,6 +9,7 @@ import { TimeManager } from '../utils/TimeManager';
 import { FloorEventManager } from '../utils/FloorEventManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
+import { AchievementManager } from '../utils/AchievementManager';
 import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType } from '../types';
 
 export class GameScene extends Phaser.Scene {
@@ -28,6 +29,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: HUD;
   private audioManager!: AudioManager;
   private saveManager!: SaveManager;
+  private achievementManager!: AchievementManager;
   private isGameOver: boolean = false;
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
   private timeManager!: TimeManager;
@@ -54,6 +56,8 @@ export class GameScene extends Phaser.Scene {
   create(data?: { challengeConfig?: ChallengeConfig }): void {
     this.audioManager = AudioManager.getInstance();
     this.saveManager = SaveManager.getInstance();
+    this.achievementManager = AchievementManager.getInstance();
+    this.achievementManager.resetInGameStats();
     this.isGameOver = false;
     this.score = 0;
     this.pillCount = 0;
@@ -592,6 +596,9 @@ export class GameScene extends Phaser.Scene {
       }
       this.hud.updateNoDamageFloors(this.noDamageFloorStreak);
 
+      this.achievementManager.updateInGameStat('floor', this.currentFloor, true);
+      this.achievementManager.updateInGameStat('maxNoDamageFloors', this.maxNoDamageFloorsInGame, true);
+
       const bonus = GameConfig.noDamageFloorBaseBonus + (this.noDamageFloorStreak - 1) * GameConfig.noDamageFloorBonusPerFloor;
       const scoreMultiplier = this.floorEventManager.getEventEffect('score');
       const finalBonus = Math.floor(bonus * scoreMultiplier);
@@ -621,6 +628,10 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateScore(this.score);
     this.hud.updateCombo(this.currentCombo);
     this.hud.showComboBonus(finalBonus, this.currentCombo);
+
+    this.achievementManager.addInGameStat('doubleJumps', 1);
+    this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
+    this.achievementManager.updateInGameStat('score', this.score, true);
   }
 
   private resetCombo(): void {
@@ -641,10 +652,15 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateScore(this.score);
     this.hud.showEffect(pillType);
     this.audioManager.play('pill');
+
+    this.achievementManager.updateInGameStat('pills', this.pillCount, true);
+    this.achievementManager.updateInGameStat('score', this.score, true);
   }
 
   private onGuardCollision(): void {
     if (this.isGameOver) return;
+
+    this.achievementManager.addInGameStat('guardHits', 1);
 
     if (this.player.hasShield) {
       this.player.hasShield = false;
@@ -751,6 +767,19 @@ export class GameScene extends Phaser.Scene {
       totalLossOfControl: sideEffectStats.lossOfControl,
       gamesPlayed: 1
     });
+
+    this.achievementManager.updateInGameStat('score', this.score, true);
+    this.achievementManager.updateInGameStat('floor', this.currentFloor, true);
+    this.achievementManager.updateInGameStat('pills', this.pillCount, true);
+    this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
+    this.achievementManager.updateInGameStat('maxNoDamageFloors', this.maxNoDamageFloorsInGame, true);
+    this.achievementManager.updateInGameStat('maxAddiction', sideEffectStats.maxAddiction, true);
+    this.achievementManager.updateInGameStat('hallucinations', sideEffectStats.hallucinations, true);
+    this.achievementManager.updateInGameStat('lossOfControl', sideEffectStats.lossOfControl, true);
+
+    const achData = this.achievementManager.getAchievementData();
+    const noGuardHits = achData.inGameStats.guardHits === 0;
+    this.achievementManager.onGameEnd(noGuardHits);
 
     const archiveManager = ArchiveManager.getInstance();
     archiveManager.checkAllArchives();

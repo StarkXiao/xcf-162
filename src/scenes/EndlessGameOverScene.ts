@@ -3,6 +3,8 @@ import { GameConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 import { EndlessLeaderboardEntry } from '../types';
 import { ArchiveManager } from '../utils/ArchiveManager';
+import { AchievementManager } from '../utils/AchievementManager';
+import { AchievementRarityConfig } from '../config/AchievementConfig';
 
 export class EndlessGameOverScene extends Phaser.Scene {
   private audioManager!: AudioManager;
@@ -164,41 +166,91 @@ export class EndlessGameOverScene extends Phaser.Scene {
 
   private checkAndShowNewUnlocks(): void {
     const archiveManager = ArchiveManager.getInstance();
-    const result = archiveManager.checkAllArchives();
+    const archiveResult = archiveManager.checkAllArchives();
 
-    if (result.newlyUnlocked.length > 0) {
-      const names = result.newlyUnlocked.map(u => u.name).join('、');
+    const achievementManager = AchievementManager.getInstance();
+    const achievementResult = achievementManager.checkAllAchievements();
+
+    const hasNew = archiveResult.newlyUnlocked.length > 0 || achievementResult.newlyUnlocked.length > 0;
+
+    if (hasNew) {
+      let notifHeight = 70;
+      if (achievementResult.newlyUnlocked.length > 0) {
+        notifHeight += 30 + achievementResult.newlyUnlocked.length * 26;
+      }
+      if (archiveResult.newlyUnlocked.length > 0) {
+        notifHeight += 30;
+      }
+
+      const notifY = 15;
+
       const notifBg = this.add.graphics();
-      notifBg.fillStyle(0x220033, 0.95);
-      notifBg.fillRoundedRect(40, 30, GameConfig.width - 80, 65, 10);
+      notifBg.fillStyle(0x150022, 0.97);
+      notifBg.fillRoundedRect(20, notifY, GameConfig.width - 40, notifHeight, 12);
       notifBg.lineStyle(2, 0xffcc00, 0.9);
-      notifBg.strokeRoundedRect(40, 30, GameConfig.width - 80, 65, 10);
+      notifBg.strokeRoundedRect(20, notifY, GameConfig.width - 40, notifHeight, 12);
       notifBg.setDepth(100);
 
-      const title = this.add.text(
-        GameConfig.width / 2,
-        52,
-        '🎉 新档案解锁！',
-        {
-          fontSize: '16px',
-          color: '#ffcc00',
-          fontStyle: 'bold'
-        }
-      ).setOrigin(0.5).setDepth(101);
+      let currentY = notifY + 20;
 
-      this.add.text(
-        GameConfig.width / 2,
-        75,
-        names,
-        {
-          fontSize: '13px',
-          color: '#ffffff',
-          wordWrap: { width: GameConfig.width - 120 }
-        }
-      ).setOrigin(0.5).setDepth(101);
+      if (achievementResult.newlyUnlocked.length > 0) {
+        this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          '🏆 新成就解锁！',
+          {
+            fontSize: '16px',
+            color: '#ffcc00',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5).setDepth(101);
+        currentY += 22;
+
+        achievementResult.newlyUnlocked.forEach(ach => {
+          const rarityConfig = AchievementRarityConfig[ach.rarity];
+          this.add.text(
+            GameConfig.width / 2,
+            currentY,
+            `${ach.icon} ${ach.name} — 称号: "${ach.title}"`,
+            {
+              fontSize: '12px',
+              color: rarityConfig.color,
+              fontStyle: 'bold'
+            }
+          ).setOrigin(0.5).setDepth(101);
+          currentY += 24;
+        });
+        currentY += 4;
+      }
+
+      if (archiveResult.newlyUnlocked.length > 0) {
+        const names = archiveResult.newlyUnlocked.map(u => u.name).join('、');
+        this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          '🎉 新档案解锁！',
+          {
+            fontSize: '14px',
+            color: '#cc99ff',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5).setDepth(101);
+        currentY += 18;
+
+        this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          names,
+          {
+            fontSize: '12px',
+            color: '#ffffff',
+            wordWrap: { width: GameConfig.width - 80 }
+          }
+        ).setOrigin(0.5).setDepth(101);
+      }
 
       this.tweens.add({
-        targets: [notifBg, title],
+        targets: [notifBg],
         alpha: { from: 0, to: 1 },
         duration: 600,
         ease: 'Sine.easeOut'

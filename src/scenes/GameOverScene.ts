@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
+import { AchievementManager } from '../utils/AchievementManager';
+import { AchievementRarityConfig } from '../config/AchievementConfig';
 
 export class GameOverScene extends Phaser.Scene {
   private audioManager!: AudioManager;
@@ -212,41 +214,97 @@ export class GameOverScene extends Phaser.Scene {
 
   private checkAndShowNewUnlocks(): void {
     const archiveManager = ArchiveManager.getInstance();
-    const result = archiveManager.checkAllArchives();
+    const archiveResult = archiveManager.checkAllArchives();
 
-    if (result.newlyUnlocked.length > 0) {
-      const names = result.newlyUnlocked.map(u => u.name).join('、');
+    const achievementManager = AchievementManager.getInstance();
+    const achievementResult = achievementManager.checkAllAchievements();
+
+    const hasNew = archiveResult.newlyUnlocked.length > 0 || achievementResult.newlyUnlocked.length > 0;
+
+    if (hasNew) {
+      let notifY = GameConfig.height - 130;
+      let notifHeight = 70;
+
+      if (achievementResult.newlyUnlocked.length > 0) {
+        notifHeight += 30 + achievementResult.newlyUnlocked.length * 26;
+      }
+      if (archiveResult.newlyUnlocked.length > 0) {
+        notifHeight += 30;
+      }
+
+      notifY = GameConfig.height - notifHeight - 10;
+
+      const tweenTargets: Phaser.GameObjects.GameObject[] = [];
+
       const notifBg = this.add.graphics();
-      notifBg.fillStyle(0x220033, 0.95);
-      notifBg.fillRoundedRect(40, GameConfig.height - 130, GameConfig.width - 80, 70, 10);
+      notifBg.fillStyle(0x150022, 0.97);
+      notifBg.fillRoundedRect(20, notifY, GameConfig.width - 40, notifHeight, 12);
       notifBg.lineStyle(2, 0xffcc00, 0.9);
-      notifBg.strokeRoundedRect(40, GameConfig.height - 130, GameConfig.width - 80, 70, 10);
+      notifBg.strokeRoundedRect(20, notifY, GameConfig.width - 40, notifHeight, 12);
       notifBg.setDepth(100);
+      tweenTargets.push(notifBg);
 
-      const title = this.add.text(
-        GameConfig.width / 2,
-        GameConfig.height - 108,
-        '🎉 新档案解锁！',
-        {
-          fontSize: '16px',
-          color: '#ffcc00',
-          fontStyle: 'bold'
-        }
-      ).setOrigin(0.5).setDepth(101);
+      let currentY = notifY + 20;
 
-      this.add.text(
-        GameConfig.width / 2,
-        GameConfig.height - 80,
-        names,
-        {
-          fontSize: '13px',
-          color: '#ffffff',
-          wordWrap: { width: GameConfig.width - 120 }
-        }
-      ).setOrigin(0.5).setDepth(101);
+      if (achievementResult.newlyUnlocked.length > 0) {
+        const achTitle = this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          '🏆 新成就解锁！',
+          {
+            fontSize: '17px',
+            color: '#ffcc00',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5).setDepth(101);
+        tweenTargets.push(achTitle);
+        currentY += 22;
+
+        achievementResult.newlyUnlocked.forEach(ach => {
+          const rarityConfig = AchievementRarityConfig[ach.rarity];
+          this.add.text(
+            GameConfig.width / 2,
+            currentY,
+            `${ach.icon} ${ach.name} — 称号: "${ach.title}"`,
+            {
+              fontSize: '13px',
+              color: rarityConfig.color,
+              fontStyle: 'bold'
+            }
+          ).setOrigin(0.5).setDepth(101);
+          currentY += 24;
+        });
+        currentY += 6;
+      }
+
+      if (archiveResult.newlyUnlocked.length > 0) {
+        const names = archiveResult.newlyUnlocked.map(u => u.name).join('、');
+        this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          '🎉 新档案解锁！',
+          {
+            fontSize: '15px',
+            color: '#cc99ff',
+            fontStyle: 'bold'
+          }
+        ).setOrigin(0.5).setDepth(101);
+        currentY += 20;
+
+        this.add.text(
+          GameConfig.width / 2,
+          currentY,
+          names,
+          {
+            fontSize: '12px',
+            color: '#ffffff',
+            wordWrap: { width: GameConfig.width - 80 }
+          }
+        ).setOrigin(0.5).setDepth(101);
+      }
 
       this.tweens.add({
-        targets: [notifBg, title],
+        targets: tweenTargets,
         alpha: { from: 0, to: 1 },
         duration: 600,
         ease: 'Sine.easeOut'

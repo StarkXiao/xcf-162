@@ -3,6 +3,7 @@ import { GameConfig } from '../config/GameConfig';
 import { SaveManager } from '../utils/SaveManager';
 import { AudioManager } from '../audio/AudioManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
+import { AchievementManager } from '../utils/AchievementManager';
 
 export class MenuScene extends Phaser.Scene {
   private saveManager!: SaveManager;
@@ -131,11 +132,53 @@ export class MenuScene extends Phaser.Scene {
     const totalCount = archiveTotal.characters + archiveTotal.rumors + archiveTotal.floors;
     const hasNewUnlocks = this.saveManager.getNewlyUnlocked().length > 0;
 
-    const archiveBtn = this.add.text(GameConfig.width / 2, 548, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
+    const achievementManager = AchievementManager.getInstance();
+    const achUnlocked = achievementManager.getUnlockedCount();
+    const achTotal = achievementManager.getTotalCount();
+    const hasNewAchievements = achievementManager.getNewlyUnlocked().length > 0;
+
+    const achievementBtn = this.add.text(GameConfig.width / 2, 548, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
       fontSize: '22px',
       color: '#ffffff',
-      backgroundColor: '#aa66ff',
+      backgroundColor: '#ffaa00',
       padding: { left: 30, right: 30, top: 10, bottom: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    if (hasNewAchievements) {
+      this.tweens.add({
+        targets: achievementBtn,
+        scale: { from: 1, to: 1.04 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    achievementBtn.on('pointerover', () => {
+      achievementBtn.setBackgroundColor('#ffbb33');
+      this.audioManager.play('hover');
+    });
+
+    achievementBtn.on('pointerout', () => {
+      achievementBtn.setBackgroundColor('#ffaa00');
+    });
+
+    achievementBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('AchievementScene');
+    });
+
+    this.add.text(GameConfig.width / 2, 581, `成就解锁: ${achUnlocked}/${achTotal}`, {
+      fontSize: '13px',
+      color: '#ffcc66'
+    }).setOrigin(0.5);
+
+    const archiveBtn = this.add.text(GameConfig.width / 2, 610, `📂 剧情档案室 ${hasNewUnlocks ? '🔔' : ''}`, {
+      fontSize: '20px',
+      color: '#ffffff',
+      backgroundColor: '#aa66ff',
+      padding: { left: 25, right: 25, top: 8, bottom: 8 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     if (hasNewUnlocks) {
@@ -163,40 +206,30 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
-    this.add.text(GameConfig.width / 2, 581, `档案解锁: ${totalUnlocked}/${totalCount}`, {
-      fontSize: '13px',
+    this.add.text(GameConfig.width / 2, 640, `档案解锁: ${totalUnlocked}/${totalCount}`, {
+      fontSize: '12px',
       color: '#cc99ff'
     }).setOrigin(0.5);
 
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 608, `生存最高分: ${saveData.highScore}`, {
-      fontSize: '16px',
+    this.add.text(GameConfig.width / 2, 662, `生存最高分: ${saveData.highScore}`, {
+      fontSize: '14px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 632, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
-      fontSize: '16px',
+    this.add.text(GameConfig.width / 2, 682, `无尽最高分: ${this.saveManager.getEndlessBestScore()}`, {
+      fontSize: '14px',
       color: '#ff66ff'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 656, `总药片: ${saveData.totalPills}`, {
-      fontSize: '14px',
+    this.add.text(GameConfig.width / 2, 700, `总药片: ${saveData.totalPills} | 游戏: ${saveData.gamesPlayed}`, {
+      fontSize: '12px',
       color: '#00ff88'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 678, `游戏次数: ${saveData.gamesPlayed} | 无尽: ${this.saveManager.getEndlessGamesPlayed()}`, {
-      fontSize: '12px',
-      color: '#888888'
-    }).setOrigin(0.5);
-
-    this.add.text(GameConfig.width / 2, 702, '← → 移动 | 空格 跳跃', {
-      fontSize: '15px',
-      color: '#666666'
-    }).setOrigin(0.5);
-
-    this.add.text(GameConfig.width / 2, 719, '拾取药片 | 躲避保安', {
+    this.add.text(GameConfig.width / 2, 718, '← → 移动 | 空格 跳跃', {
       fontSize: '13px',
-      color: '#444444'
+      color: '#666666'
     }).setOrigin(0.5);
 
     this.time.addEvent({

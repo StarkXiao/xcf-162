@@ -7,6 +7,7 @@ import { EndlessHUD } from '../ui/EndlessHUD';
 import { AudioManager } from '../audio/AudioManager';
 import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
+import { AchievementManager } from '../utils/AchievementManager';
 
 export class EndlessScene extends Phaser.Scene {
   private player!: Player;
@@ -26,6 +27,7 @@ export class EndlessScene extends Phaser.Scene {
   private hud!: EndlessHUD;
   private audioManager!: AudioManager;
   private saveManager!: SaveManager;
+  private achievementManager!: AchievementManager;
   private isGameOver: boolean = false;
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; jump: Phaser.Input.Keyboard.Key };
   private currentCombo: number = 0;
@@ -47,6 +49,8 @@ export class EndlessScene extends Phaser.Scene {
   create(): void {
     this.audioManager = AudioManager.getInstance();
     this.saveManager = SaveManager.getInstance();
+    this.achievementManager = AchievementManager.getInstance();
+    this.achievementManager.resetInGameStats();
     this.isGameOver = false;
     this.rawScore = 0;
     this.pillCount = 0;
@@ -382,6 +386,9 @@ export class EndlessScene extends Phaser.Scene {
       this.resetPillTimer();
 
       this.audioManager.play('jump');
+
+      this.achievementManager.updateInGameStat('floor', this.currentFloor, true);
+      this.achievementManager.updateInGameStat('score', this.getFinalScore(), true);
     }
 
     if (this.currentCombo > 0) {
@@ -404,6 +411,10 @@ export class EndlessScene extends Phaser.Scene {
     this.hud.updateScore(this.getFinalScore());
     this.hud.updateCombo(this.currentCombo);
     this.hud.showComboBonus(finalBonus, this.currentCombo);
+
+    this.achievementManager.addInGameStat('doubleJumps', 1);
+    this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
+    this.achievementManager.updateInGameStat('score', this.getFinalScore(), true);
   }
 
   private resetCombo(): void {
@@ -427,10 +438,15 @@ export class EndlessScene extends Phaser.Scene {
     this.hud.updateScore(this.getFinalScore());
     this.hud.showEffect(pillType);
     this.audioManager.play('pill');
+
+    this.achievementManager.updateInGameStat('pills', this.pillCount, true);
+    this.achievementManager.updateInGameStat('score', this.getFinalScore(), true);
   }
 
   private onGuardCollision(): void {
     if (this.isGameOver) return;
+
+    this.achievementManager.addInGameStat('guardHits', 1);
 
     if (this.player.hasShield) {
       this.player.hasShield = false;
@@ -494,6 +510,18 @@ export class EndlessScene extends Phaser.Scene {
       hallucinations: sideEffectStats.hallucinations,
       lossOfControl: sideEffectStats.lossOfControl
     });
+
+    this.achievementManager.updateInGameStat('score', finalScore, true);
+    this.achievementManager.updateInGameStat('floor', this.currentFloor, true);
+    this.achievementManager.updateInGameStat('pills', this.pillCount, true);
+    this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
+    this.achievementManager.updateInGameStat('maxAddiction', sideEffectStats.maxAddiction, true);
+    this.achievementManager.updateInGameStat('hallucinations', sideEffectStats.hallucinations, true);
+    this.achievementManager.updateInGameStat('lossOfControl', sideEffectStats.lossOfControl, true);
+
+    const achData = this.achievementManager.getAchievementData();
+    const noGuardHits = achData.inGameStats.guardHits === 0;
+    this.achievementManager.onGameEnd(noGuardHits);
 
     const archiveManager = ArchiveManager.getInstance();
     archiveManager.checkAllArchives();

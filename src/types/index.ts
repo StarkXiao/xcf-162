@@ -165,28 +165,6 @@ export interface ArchiveData {
   newlyUnlocked: string[];
 }
 
-export interface SaveData {
-  highScore: number;
-  totalPills: number;
-  gamesPlayed: number;
-  lastTimeOfDay: TimeOfDay;
-  totalDayCycles: number;
-  eventsTriggered: number;
-  maxCombo: number;
-  maxNoDamageFloors: number;
-  totalCombos: number;
-  trainingScores: TrainingScores;
-  endlessLeaderboard: EndlessLeaderboardEntry[];
-  endlessBestScore: number;
-  endlessBestFloor: number;
-  endlessGamesPlayed: number;
-  totalAddictionLevel: number;
-  maxAddictionReached: number;
-  totalHallucinationsTriggered: number;
-  totalLossOfControlTriggered: number;
-  archive: ArchiveData;
-}
-
 export enum WinConditionType {
   FLOOR_REACHED = 'floor_reached',
   SCORE_REACHED = 'score_reached',
@@ -226,5 +204,102 @@ export interface ChallengeConfig {
 
 export interface ChallengePresetList {
   presets: ChallengeConfig[];
+}
+
+export enum AchievementRarity {
+  COMMON = 'common',
+  RARE = 'rare',
+  EPIC = 'epic',
+  LEGENDARY = 'legendary'
+}
+
+export type AchievementConditionType =
+  | 'singleGameScore'
+  | 'singleGameFloor'
+  | 'singleGamePills'
+  | 'singleGameCombo'
+  | 'singleGameNoDamageFloors'
+  | 'singleGameMaxAddiction'
+  | 'singleGameHallucinations'
+  | 'singleGameLossOfControl'
+  | 'totalGamesPlayed'
+  | 'totalPills'
+  | 'totalHighScore'
+  | 'totalCombos'
+  | 'totalDayCycles'
+  | 'totalEventsTriggered'
+  | 'totalHallucinations'
+  | 'totalLossOfControl'
+  | 'endlessBestScore'
+  | 'endlessBestFloor'
+  | 'endlessGamesPlayed'
+  | 'trainingTotalScore'
+  | 'collectAllPillsInGame'
+  | 'noGuardHitGame'
+  | 'perfectJumpCombo';
+
+export interface AchievementCondition {
+  type: AchievementConditionType;
+  value: number;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  title: string;
+  icon: string;
+  rarity: AchievementRarity;
+  description: string;
+  condition: AchievementCondition;
+  unlockHint: string;
+}
+
+export interface InGameStats {
+  score: number;
+  floor: number;
+  pills: number;
+  maxCombo: number;
+  maxNoDamageFloors: number;
+  maxAddiction: number;
+  hallucinations: number;
+  lossOfControl: number;
+  doubleJumps: number;
+  guardHits: number;
+  perfectJumps: number;
+}
+
+export interface AchievementData {
+  unlockedAchievements: string[];
+  newlyUnlocked: string[];
+  inGameStats: InGameStats;
+  stats: {
+    totalDoubleJumps: number;
+    totalPerfectJumps: number;
+    totalNoGuardHitGames: number;
+    totalCollectAllPillsGames: number;
+  };
+}
+
+export interface SaveData {
+  highScore: number;
+  totalPills: number;
+  gamesPlayed: number;
+  lastTimeOfDay: TimeOfDay;
+  totalDayCycles: number;
+  eventsTriggered: number;
+  maxCombo: number;
+  maxNoDamageFloors: number;
+  totalCombos: number;
+  trainingScores: TrainingScores;
+  endlessLeaderboard: EndlessLeaderboardEntry[];
+  endlessBestScore: number;
+  endlessBestFloor: number;
+  endlessGamesPlayed: number;
+  totalAddictionLevel: number;
+  maxAddictionReached: number;
+  totalHallucinationsTriggered: number;
+  totalLossOfControlTriggered: number;
+  archive: ArchiveData;
+  achievements: AchievementData;
 }
 

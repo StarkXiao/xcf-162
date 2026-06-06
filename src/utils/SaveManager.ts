@@ -1,4 +1,4 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData } from '../types';
 import { GameConfig } from '../config/GameConfig';
 
 export class SaveManager {
@@ -32,6 +32,30 @@ export class SaveManager {
     }
   };
 
+  private defaultAchievementData: AchievementData = {
+    unlockedAchievements: [],
+    newlyUnlocked: [],
+    inGameStats: {
+      score: 0,
+      floor: 0,
+      pills: 0,
+      maxCombo: 0,
+      maxNoDamageFloors: 0,
+      maxAddiction: 0,
+      hallucinations: 0,
+      lossOfControl: 0,
+      doubleJumps: 0,
+      guardHits: 0,
+      perfectJumps: 0
+    },
+    stats: {
+      totalDoubleJumps: 0,
+      totalPerfectJumps: 0,
+      totalNoGuardHitGames: 0,
+      totalCollectAllPillsGames: 0
+    }
+  };
+
   private defaultData: SaveData = {
     highScore: 0,
     totalPills: 0,
@@ -56,7 +80,8 @@ export class SaveManager {
       unlockedRumors: [],
       unlockedHiddenFloors: [],
       newlyUnlocked: []
-    }
+    },
+    achievements: this.defaultAchievementData
   };
 
   private constructor() {
