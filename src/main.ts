@@ -15,6 +15,7 @@ import { AchievementScene } from './scenes/AchievementScene';
 import { SeasonScene } from './scenes/SeasonScene';
 import { ChallengeEditorScene } from './scenes/ChallengeEditorScene';
 import { ClubScene } from './scenes/ClubScene';
+import { ReplayScene } from './scenes/ReplayScene';
 import { GameConfig } from './config/GameConfig';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -36,7 +37,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: GameConfig.width,
     height: GameConfig.height
   },
-  scene: [BootScene, MenuScene, GameScene, DualGameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene, EndlessScene, EndlessGameOverScene, ArchiveScene, AchievementScene, SeasonScene, ChallengeEditorScene, ClubScene]
+  scene: [BootScene, MenuScene, GameScene, DualGameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene, EndlessScene, EndlessGameOverScene, ArchiveScene, AchievementScene, SeasonScene, ChallengeEditorScene, ClubScene, ReplayScene]
 };
 
 new Phaser.Game(config);

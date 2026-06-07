@@ -505,16 +505,31 @@ export enum ReplayEventType {
   SCORE_FLOOR = 'score_floor',
   SCORE_COMBO = 'score_combo',
   SCORE_PILL = 'score_pill',
-  SCORE_NODAMAGE = 'score_nodamage'
+  SCORE_NODAMAGE = 'score_nodamage',
+  ITEM_PILL_USE = 'item_pill_use',
+  ITEM_SHOP_PURCHASE = 'item_shop_purchase',
+  EVENT_FLOOR_START = 'event_floor_start',
+  EVENT_FLOOR_END = 'event_floor_end',
+  TIME_OF_DAY_CHANGE = 'time_of_day_change',
+  CHARACTER_SWITCH = 'character_switch',
+  PLAYER_DEATH = 'player_death'
 }
 
 export interface ReplayEvent {
   timestamp: number;
+  relativeTime: number;
   type: ReplayEventType;
   description: string;
   details?: string;
   scoreGain?: number;
   floorNumber?: number;
+  pillType?: string;
+  shopItemType?: string;
+  eventType?: string;
+  timeOfDay?: string;
+  characterType?: string;
+  comboCount?: number;
+  addictionLevel?: number;
 }
 
 export interface ReplayData {
@@ -524,6 +539,14 @@ export interface ReplayData {
   deathReason: string;
   gameDuration: number;
   date: string;
+  gameMode: 'normal' | 'endless' | 'challenge' | 'dual';
+  maxCombo: number;
+  maxNoDamageFloors: number;
+  pillsCollected: number;
+  shopItemsUsed: { shield: number; slowPulse: number; bounce: number; pillsSpent: number };
+  maxAddiction: number;
+  hallucinations: number;
+  lossOfControl: number;
 }
 
 export interface SaveData {

@@ -342,16 +342,37 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
+    const replayBtn = this.add.text(GameConfig.width / 2, 720, '📋 历史复盘', {
+      fontSize: '14px',
+      color: '#ffffff',
+      backgroundColor: '#6699ff',
+      padding: { left: 20, right: 20, top: 5, bottom: 5 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    replayBtn.on('pointerover', () => {
+      replayBtn.setBackgroundColor('#77aaff');
+      this.audioManager.play('hover');
+    });
+
+    replayBtn.on('pointerout', () => {
+      replayBtn.setBackgroundColor('#6699ff');
+    });
+
+    replayBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('ReplayScene');
+    });
+
     const saveData = this.saveManager.getSaveData();
     const riskBest = this.saveManager.getRiskRewardBestScore();
-    this.add.text(GameConfig.width / 2, 715, `最高:${saveData.highScore} | 🔥风险:${riskBest} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
+    this.add.text(GameConfig.width / 2, 748, `最高:${saveData.highScore} | 🔥风险:${riskBest} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
       fontSize: '10px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
     this.createAudioSettings();
 
-    this.add.text(GameConfig.width / 2, 755, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+    this.add.text(GameConfig.width / 2, 790, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
       fontSize: '9px',
       color: '#666666'
     }).setOrigin(0.5);
@@ -390,7 +411,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private createAudioSettings(): void {
-    const baseY = 738;
+    const baseY = 770;
 
     this.add.text(20, baseY - 14, '🔊 音频设置', {
       fontSize: '11px',

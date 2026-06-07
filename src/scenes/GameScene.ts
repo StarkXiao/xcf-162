@@ -12,7 +12,8 @@ import { SaveManager } from '../utils/SaveManager';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
-import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats, SeasonTaskType, ReplayEvent, ReplayEventType, ReplayData } from '../types';
+import { ReplayManager } from '../utils/ReplayManager';
+import { ChallengeConfig, TimeOfDay, FloorEvent, WinConditionType, ShopItemType, ShopPurchaseStats, SeasonTaskType } from '../types';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -63,10 +64,7 @@ export class GameScene extends Phaser.Scene {
   private isRiskRewardMode: boolean = false;
   private currentMultiplier: number = 1.0;
 
-  private replayEvents: ReplayEvent[] = [];
-  private gameStartTime: number = 0;
-  private deathReason: string = '';
-  private readonly REPLAY_WINDOW_MS: number = 10000;
+  private replayManager!: ReplayManager;
 
   constructor() {
     super('GameScene');
@@ -100,9 +98,8 @@ export class GameScene extends Phaser.Scene {
       emergencyBouncesPurchased: 0,
       totalPillsSpent: 0
     };
-    this.replayEvents = [];
-    this.deathReason = '';
-    this.gameStartTime = this.time.now;
+    this.replayManager = ReplayManager.getInstance();
+    this.replayManager.startGame(this.isChallengeMode ? 'challenge' : 'normal');
 
     if (data?.challengeConfig) {
       this.challengeConfig = data.challengeConfig;
@@ -489,12 +486,7 @@ export class GameScene extends Phaser.Scene {
         this.hud.updateScore(this.score);
         this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, gained);
         this.seasonManager.updateSingleGameMax(SeasonTaskType.SCORE, this.score);
-        this.addReplayEvent({
-          type: ReplayEventType.SCORE_SURVIVAL,
-          description: '存活得分',
-          scoreGain: gained,
-          floorNumber: this.currentFloor
-        });
+        this.replayManager.recordSurvivalScore(this.currentFloor, gained);
       },
       callbackScope: this,
       loop: true
@@ -510,29 +502,6 @@ export class GameScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
-  }
-
-  private addReplayEvent(event: Omit<ReplayEvent, 'timestamp'>): void {
-    const now = this.time.now;
-    this.replayEvents.push({
-      ...event,
-      timestamp: now
-    });
-    const cutoff = now - this.REPLAY_WINDOW_MS;
-    while (this.replayEvents.length > 0 && this.replayEvents[0].timestamp < cutoff) {
-      this.replayEvents.shift();
-    }
-  }
-
-  private getReplayData(): ReplayData {
-    return {
-      events: [...this.replayEvents],
-      finalFloor: this.currentFloor,
-      finalScore: this.score,
-      deathReason: this.deathReason,
-      gameDuration: this.time.now - this.gameStartTime,
-      date: new Date().toISOString()
-    };
   }
 
   private setupManagers(): void {
@@ -635,6 +604,7 @@ export class GameScene extends Phaser.Scene {
   private onTimeOfDayChange(newTime: TimeOfDay): void {
     this.applyTimeOfDaySettings();
     this.saveManager.setLastTimeOfDay(newTime);
+    this.replayManager.recordTimeOfDayChange(newTime, this.currentFloor);
 
     const currentCycles = this.timeManager.getCycleCount();
     if (currentCycles > this.previousCycleCount) {
@@ -651,6 +621,7 @@ export class GameScene extends Phaser.Scene {
     this.updateDarkOverlay();
     this.resetSpawnTimer();
     this.resetPillTimer();
+    this.replayManager.recordFloorEventStart(event, this.currentFloor);
 
     const currentEvents = this.floorEventManager.getEventsTriggeredCount();
     if (currentEvents > this.previousEventsTriggered) {
@@ -666,6 +637,7 @@ export class GameScene extends Phaser.Scene {
     this.updateDarkOverlay();
     this.resetSpawnTimer();
     this.resetPillTimer();
+    this.replayManager.recordFloorEventEnd(_event, this.currentFloor);
   }
 
   private spawnGuard(): void {
@@ -743,11 +715,7 @@ export class GameScene extends Phaser.Scene {
       this.floorEventManager.checkFloorEvent(this.currentFloor);
       this.audioManager.play('jump');
 
-      this.addReplayEvent({
-        type: ReplayEventType.FLOOR_CHANGE,
-        description: `楼层上升 ${oldFloor}F → ${this.currentFloor}F`,
-        floorNumber: this.currentFloor
-      });
+      this.replayManager.recordFloorChange(oldFloor, this.currentFloor);
 
       this.updateRiskRewardMultiplier();
       this.resetSpawnTimer();
@@ -772,12 +740,7 @@ export class GameScene extends Phaser.Scene {
       this.hud.updateScore(this.score);
       this.hud.showNoDamageBonus(finalBonus, this.noDamageFloorStreak);
 
-      this.addReplayEvent({
-        type: ReplayEventType.SCORE_NODAMAGE,
-        description: `无伤连层 ${this.noDamageFloorStreak} 层`,
-        scoreGain: finalBonus,
-        floorNumber: this.currentFloor
-      });
+      this.replayManager.recordNoDamageBonus(this.noDamageFloorStreak, this.currentFloor, finalBonus);
 
       this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, finalBonus);
     }
@@ -804,12 +767,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateCombo(this.currentCombo);
     this.hud.showComboBonus(finalBonus, this.currentCombo);
 
-    this.addReplayEvent({
-      type: ReplayEventType.SCORE_COMBO,
-      description: `连击 x${this.currentCombo}`,
-      scoreGain: finalBonus,
-      floorNumber: this.currentFloor
-    });
+    this.replayManager.recordCombo(this.currentCombo, this.currentFloor, finalBonus);
 
     this.achievementManager.addInGameStat('doubleJumps', 1);
     this.achievementManager.updateInGameStat('maxCombo', this.maxComboInGame, true);
@@ -836,26 +794,7 @@ export class GameScene extends Phaser.Scene {
     const pillScore = Math.floor(GameConfig.pillScore * scoreMultiplier * this.currentMultiplier);
     this.score += pillScore;
 
-    const pillLabels: Record<string, string> = {
-      'speed': '加速',
-      'slow': '减速',
-      'shield': '护盾',
-      'score': '得分'
-    };
-
-    this.addReplayEvent({
-      type: ReplayEventType.COLLISION_PILL,
-      description: `收集药片: ${pillLabels[pillType] || pillType}`,
-      scoreGain: pillScore,
-      floorNumber: this.currentFloor
-    });
-
-    this.addReplayEvent({
-      type: ReplayEventType.SCORE_PILL,
-      description: `药片得分`,
-      scoreGain: pillScore,
-      floorNumber: this.currentFloor
-    });
+    this.replayManager.recordPillCollect(pillType, this.currentFloor, pillScore);
 
     this.hud.updatePills(this.pillCount);
     this.hud.updateScore(this.score);
@@ -878,6 +817,8 @@ export class GameScene extends Phaser.Scene {
     this.shopPurchaseStats.totalPillsSpent += config.cost;
     this.hud.updatePills(this.pillCount);
     this.audioManager.play('pill');
+
+    this.replayManager.recordShopPurchase(itemType, this.currentFloor, config.cost);
 
     switch (itemType) {
       case ShopItemType.SHIELD:
@@ -907,11 +848,7 @@ export class GameScene extends Phaser.Scene {
 
     this.seasonManager.updateTaskProgress(SeasonTaskType.GUARD_HITS, 1);
 
-    this.addReplayEvent({
-      type: ReplayEventType.COLLISION_GUARD,
-      description: '与保安碰撞',
-      floorNumber: this.currentFloor
-    });
+    this.replayManager.recordGuardCollision(this.currentFloor);
 
     if (this.player.hasShield) {
       this.player.hasShield = false;
@@ -929,7 +866,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.deathReason = '被保安抓住';
+    const reason = '被保安抓住';
+    this.replayManager.recordPlayerDeath(reason, this.currentFloor);
     this.gameOver();
   }
 
@@ -951,10 +889,29 @@ export class GameScene extends Phaser.Scene {
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
 
-    if (!this.deathReason && this.isChallengeMode && this.checkChallengeTimeLimit()) {
-      this.deathReason = '挑战时间耗尽';
+    let finalDeathReason = '';
+    const replayDataRaw = this.replayManager.getReplayData();
+    if (replayDataRaw.deathReason) {
+      finalDeathReason = replayDataRaw.deathReason;
+    } else if (this.isChallengeMode && this.checkChallengeTimeLimit()) {
+      finalDeathReason = '挑战时间耗尽';
+      this.replayManager.recordPlayerDeath(finalDeathReason, this.currentFloor);
     }
-    const replayData = this.getReplayData();
+
+    this.replayManager.setFinalStats({
+      floor: this.currentFloor,
+      score: this.score,
+      deathReason: finalDeathReason,
+      maxCombo: this.maxComboInGame,
+      maxNoDamageFloors: this.maxNoDamageFloorsInGame,
+      pillsCollected: this.pillsCollectedTotal,
+      shopItemsUsed: this.shopPurchaseStats,
+      maxAddiction: recordFlags.sideEffectStats.maxAddiction,
+      hallucinations: recordFlags.sideEffectStats.hallucinations,
+      lossOfControl: recordFlags.sideEffectStats.lossOfControl
+    });
+
+    const replayData = this.replayManager.getReplayData();
 
     this.cameras.main.fade(500, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -1123,12 +1080,9 @@ export class GameScene extends Phaser.Scene {
     if (this.player.y > this.cameraTargetY + GameConfig.height + 100) {
       if (!this.isChallengeMode || this.challengeConfig?.loseOnFall) {
         if (!this.isGameOver) {
-          this.addReplayEvent({
-            type: ReplayEventType.COLLISION_FALL,
-            description: '掉出屏幕',
-            floorNumber: this.currentFloor
-          });
-          this.deathReason = '掉出屏幕坠落';
+          this.replayManager.recordFall(this.currentFloor);
+          const reason = '掉出屏幕坠落';
+          this.replayManager.recordPlayerDeath(reason, this.currentFloor);
         }
         this.gameOver();
       }
