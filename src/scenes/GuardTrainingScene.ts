@@ -521,5 +521,33 @@ export class GuardTrainingScene extends Phaser.Scene {
       const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + 0.4;
       light.setAlpha(pulse);
     });
+
+    this.updateDangerState();
+  }
+
+  private updateDangerState(): void {
+    if (!this.audioManager.isAdaptiveMixingEnabled()) return;
+
+    let isDanger = false;
+
+    for (const guard of this.guards) {
+      if (!guard.active) continue;
+      const dx = Math.abs(guard.x - this.player.x);
+      const dy = Math.abs(guard.y - this.player.y);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        isDanger = true;
+        break;
+      }
+    }
+
+    if (!isDanger) {
+      const sideEffectState = this.player.getSideEffectState();
+      if (sideEffectState.addictionLevel >= 70 || sideEffectState.isHallucinating || sideEffectState.isOutOfControl) {
+        isDanger = true;
+      }
+    }
+
+    this.audioManager.setDangerState(isDanger);
   }
 }

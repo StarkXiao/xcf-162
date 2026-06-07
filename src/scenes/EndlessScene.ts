@@ -688,6 +688,37 @@ export class EndlessScene extends Phaser.Scene {
       light.setAlpha(pulse * 0.6);
     });
 
+    this.updateDangerState();
+
     this.hud.update();
+  }
+
+  private updateDangerState(): void {
+    if (!this.audioManager.isAdaptiveMixingEnabled()) return;
+
+    let isDanger = false;
+
+    for (const guard of this.guards) {
+      const dx = Math.abs(guard.x - this.player.x);
+      const dy = Math.abs(guard.y - this.player.y);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        isDanger = true;
+        break;
+      }
+    }
+
+    if (!isDanger && this.currentChaseState !== GuardChaseState.PATROL) {
+      isDanger = true;
+    }
+
+    if (!isDanger) {
+      const sideEffectState = this.player.getSideEffectState();
+      if (sideEffectState.addictionLevel >= 70 || sideEffectState.isHallucinating || sideEffectState.isOutOfControl) {
+        isDanger = true;
+      }
+    }
+
+    this.audioManager.setDangerState(isDanger);
   }
 }

@@ -463,5 +463,19 @@ export class PillTrainingScene extends Phaser.Scene {
       const pulse = Math.sin(this.time.now * 0.003 + index) * 0.2 + 0.4;
       light.setAlpha(pulse);
     });
+
+    this.updateDangerState();
+  }
+
+  private updateDangerState(): void {
+    if (!this.audioManager.isAdaptiveMixingEnabled()) return;
+
+    let isDanger = false;
+    const sideEffectState = this.player.getSideEffectState();
+    if (sideEffectState.addictionLevel >= 70 || sideEffectState.isHallucinating || sideEffectState.isOutOfControl) {
+      isDanger = true;
+    }
+
+    this.audioManager.setDangerState(isDanger);
   }
 }
