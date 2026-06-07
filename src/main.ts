@@ -16,6 +16,11 @@ import { SeasonScene } from './scenes/SeasonScene';
 import { ChallengeEditorScene } from './scenes/ChallengeEditorScene';
 import { ClubScene } from './scenes/ClubScene';
 import { ReplayScene } from './scenes/ReplayScene';
+import { ChapterSelectScene } from './scenes/ChapterSelectScene';
+import { CutsceneScene } from './scenes/CutsceneScene';
+import { StoryGameScene } from './scenes/StoryGameScene';
+import { StoryVictoryScene } from './scenes/StoryVictoryScene';
+import { StoryGameOverScene } from './scenes/StoryGameOverScene';
 import { GameConfig } from './config/GameConfig';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -37,7 +42,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: GameConfig.width,
     height: GameConfig.height
   },
-  scene: [BootScene, MenuScene, GameScene, DualGameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene, EndlessScene, EndlessGameOverScene, ArchiveScene, AchievementScene, SeasonScene, ChallengeEditorScene, ClubScene, ReplayScene]
+  scene: [BootScene, MenuScene, GameScene, DualGameScene, GameOverScene, TrainingScene, JumpTrainingScene, PillTrainingScene, GuardTrainingScene, EndlessScene, EndlessGameOverScene, ArchiveScene, AchievementScene, SeasonScene, ChallengeEditorScene, ClubScene, ReplayScene, ChapterSelectScene, CutsceneScene, StoryGameScene, StoryVictoryScene, StoryGameOverScene]
 };
 
 new Phaser.Game(config);

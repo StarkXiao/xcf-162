@@ -5,6 +5,7 @@ import { AudioManager } from '../audio/AudioManager';
 import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
 import { ClubManager } from '../utils/ClubManager';
+import { StoryManager } from '../utils/StoryManager';
 
 export class MenuScene extends Phaser.Scene {
   private saveManager!: SaveManager;
@@ -54,8 +55,41 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('GameScene');
     });
 
+    const storyManager = StoryManager.getInstance();
+    const storyProgress = storyManager.isAllChaptersCompleted() ? '🎉 已通关' :
+      (storyManager.getHighestUnlockedChapter() > 1 ? `进度 ${storyManager.getHighestUnlockedChapter()}/3` : '');
+    const storyBtn = this.add.text(GameConfig.width / 2, 340, `🎬 危机逃生剧情模式 ${storyProgress}`, {
+      fontSize: '24px',
+      color: '#ffffff',
+      backgroundColor: '#ff6699',
+      padding: { left: 28, right: 28, top: 10, bottom: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    this.tweens.add({
+      targets: storyBtn,
+      scale: { from: 1, to: 1.02 },
+      duration: 1400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    storyBtn.on('pointerover', () => {
+      storyBtn.setBackgroundColor('#ff88bb');
+      this.audioManager.play('hover');
+    });
+
+    storyBtn.on('pointerout', () => {
+      storyBtn.setBackgroundColor('#ff6699');
+    });
+
+    storyBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('ChapterSelectScene');
+    });
+
     const riskRewardEnabled = this.saveManager.isRiskRewardMode();
-    const riskRewardBtn = this.add.text(GameConfig.width / 2, 340, '', {
+    const riskRewardBtn = this.add.text(GameConfig.width / 2, 390, '', {
       fontSize: '15px',
       color: '#ffffff',
       backgroundColor: riskRewardEnabled ? '#ff3300' : '#444466',
@@ -87,12 +121,12 @@ export class MenuScene extends Phaser.Scene {
       updateRiskRewardBtn();
     });
 
-    this.add.text(GameConfig.width / 2, 362, '楼层越高得分倍率越高，但保安更快药片更少', {
+    this.add.text(GameConfig.width / 2, 412, '楼层越高得分倍率越高，但保安更快药片更少', {
       fontSize: '9px',
       color: '#ff9977'
     }).setOrigin(0.5);
 
-    const dualBtn = this.add.text(GameConfig.width / 2, 390, '🔄 双角色接力 🔄', {
+    const dualBtn = this.add.text(GameConfig.width / 2, 440, '🔄 双角色接力 🔄', {
       fontSize: '26px',
       color: '#ffffff',
       backgroundColor: '#00ccaa',
@@ -122,7 +156,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('DualGameScene');
     });
 
-    const endlessBtn = this.add.text(GameConfig.width / 2, 455, '⚡ 无尽竞速 ⚡', {
+    const endlessBtn = this.add.text(GameConfig.width / 2, 505, '⚡ 无尽竞速 ⚡', {
       fontSize: '24px',
       color: '#ffffff',
       backgroundColor: '#9933ff',
@@ -152,7 +186,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('EndlessScene');
     });
 
-    const trainingBtn = this.add.text(GameConfig.width / 2, 510, '番外训练馆', {
+    const trainingBtn = this.add.text(GameConfig.width / 2, 560, '番外训练馆', {
       fontSize: '22px',
       color: '#ffffff',
       backgroundColor: '#00aaff',
@@ -173,7 +207,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('TrainingScene');
     });
 
-    const challengeBtn = this.add.text(GameConfig.width / 2, 555, '🎮 自定义挑战', {
+    const challengeBtn = this.add.text(GameConfig.width / 2, 605, '🎮 自定义挑战', {
       fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ff6633',
@@ -195,7 +229,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     const clubManager = ClubManager.getInstance();
-    const clubBtn = this.add.text(GameConfig.width / 2, 598, `🎵 夜店经营 💰${clubManager.getClubCoins()}`, {
+    const clubBtn = this.add.text(GameConfig.width / 2, 648, `🎵 夜店经营 💰${clubManager.getClubCoins()}`, {
       fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ff00aa',
@@ -224,7 +258,7 @@ export class MenuScene extends Phaser.Scene {
     if (clubBuff.baseTimeBonus > 0) buffParts.push(`时间+${Math.floor(clubBuff.baseTimeBonus / 1000)}s`);
     if (buffParts.length > 0) clubBuffLabel = buffParts.join(' ');
 
-    this.add.text(GameConfig.width / 2, 621, clubBuffLabel, {
+    this.add.text(GameConfig.width / 2, 671, clubBuffLabel, {
       fontSize: '10px',
       color: '#ff99dd'
     }).setOrigin(0.5);
@@ -241,7 +275,7 @@ export class MenuScene extends Phaser.Scene {
     const hasNewSeason = seasonManager.hasClaimableRewards();
     const seasonLevelData = seasonManager.getLevelProgress();
 
-    const achievementBtn = this.add.text(GameConfig.width / 2, 645, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
+    const achievementBtn = this.add.text(GameConfig.width / 2, 695, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
       fontSize: '17px',
       color: '#ffffff',
       backgroundColor: '#ffaa00',
@@ -273,12 +307,12 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('AchievementScene');
     });
 
-    this.add.text(GameConfig.width / 2, 668, `成就: ${achUnlocked}/${achTotal}`, {
+    this.add.text(GameConfig.width / 2, 718, `成就: ${achUnlocked}/${achTotal}`, {
       fontSize: '10px',
       color: '#ffcc66'
     }).setOrigin(0.5);
 
-    const seasonBtn = this.add.text(GameConfig.width / 2 - 110, 690, `🏅 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
+    const seasonBtn = this.add.text(GameConfig.width / 2 - 110, 740, `🏅 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#00ccaa',
@@ -310,7 +344,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('SeasonScene');
     });
 
-    const archiveBtn = this.add.text(GameConfig.width / 2 + 110, 690, `📂 档案 ${hasNewUnlocks ? '🔔' : ''}`, {
+    const archiveBtn = this.add.text(GameConfig.width / 2 + 110, 740, `📂 档案 ${hasNewUnlocks ? '🔔' : ''}`, {
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#aa66ff',
@@ -342,7 +376,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
-    const replayBtn = this.add.text(GameConfig.width / 2, 720, '📋 历史复盘', {
+    const replayBtn = this.add.text(GameConfig.width / 2, 770, '📋 历史复盘', {
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#6699ff',
@@ -365,14 +399,14 @@ export class MenuScene extends Phaser.Scene {
 
     const saveData = this.saveManager.getSaveData();
     const riskBest = this.saveManager.getRiskRewardBestScore();
-    this.add.text(GameConfig.width / 2, 748, `最高:${saveData.highScore} | 🔥风险:${riskBest} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
+    this.add.text(GameConfig.width / 2, 798, `最高:${saveData.highScore} | 🔥风险:${riskBest} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
       fontSize: '10px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
     this.createAudioSettings();
 
-    this.add.text(GameConfig.width / 2, 790, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+    this.add.text(GameConfig.width / 2, 840, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
       fontSize: '9px',
       color: '#666666'
     }).setOrigin(0.5);
@@ -411,7 +445,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private createAudioSettings(): void {
-    const baseY = 770;
+    const baseY = 820;
 
     this.add.text(20, baseY - 14, '🔊 音频设置', {
       fontSize: '11px',
