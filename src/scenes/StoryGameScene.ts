@@ -45,6 +45,7 @@ export class StoryGameScene extends Phaser.Scene {
   private chapterId!: number;
   private isBossFight: boolean = false;
   private bossSpawned: boolean = false;
+  private pendingBossSpawn: boolean = false;
   private chapterStartTime: number = 0;
   private chapterHudText!: Phaser.GameObjects.Text;
   private shopPurchaseStats: ShopPurchaseStats = {
@@ -86,6 +87,7 @@ export class StoryGameScene extends Phaser.Scene {
     this.boss = null;
     this.isBossFight = false;
     this.bossSpawned = false;
+    this.pendingBossSpawn = false;
     this.shopPurchaseStats = { shieldsPurchased: 0, slowPulsesPurchased: 0, emergencyBouncesPurchased: 0, totalPillsSpent: 0 };
 
     const initialTime = this.chapterConfig.startingTimeOfDay;
@@ -464,8 +466,8 @@ export class StoryGameScene extends Phaser.Scene {
   }
 
   private spawnBoss(): void {
-    if (this.bossSpawned) return;
-    this.bossSpawned = true;
+    if (this.bossSpawned || this.pendingBossSpawn) return;
+    this.pendingBossSpawn = true;
     this.isBossFight = true;
 
     if (this.spawnTimer) this.spawnTimer.destroy();
@@ -479,9 +481,14 @@ export class StoryGameScene extends Phaser.Scene {
         nextScene: 'StoryGameScene',
         nextSceneData: { chapterId: this.chapterId, _resumeBoss: true }
       });
-      this.time.delayedCall(100, () => this.doSpawnBoss());
       return;
     }
+    this.onBossCutsceneComplete();
+  }
+
+  public onBossCutsceneComplete(): void {
+    if (this.bossSpawned) return;
+    this.pendingBossSpawn = false;
     this.doSpawnBoss();
   }
 

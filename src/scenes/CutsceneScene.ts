@@ -178,7 +178,16 @@ export class CutsceneScene extends Phaser.Scene {
     if (this.typewriterTimer) this.typewriterTimer.destroy();
     this.cameras.main.fade(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start(this.nextScene, this.nextSceneData || {});
+      if (this.nextSceneData?._resumeBoss) {
+        this.scene.stop();
+        this.scene.resume(this.nextScene);
+        const targetScene = this.scene.get(this.nextScene) as any;
+        if (targetScene && typeof targetScene.onBossCutsceneComplete === 'function') {
+          targetScene.onBossCutsceneComplete();
+        }
+      } else {
+        this.scene.start(this.nextScene, this.nextSceneData || {});
+      }
     });
   }
 }
