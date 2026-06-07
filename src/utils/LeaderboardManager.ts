@@ -14,7 +14,7 @@ export interface AddLeaderboardResult {
 export class LeaderboardManager {
   private static instance: LeaderboardManager;
   private saveManager: SaveManager;
-  private readonly MAX_ENTRIES_PER_MODE = 50;
+  private readonly MAX_ENTRIES_PER_DIMENSION = 30;
 
   private constructor() {
     this.saveManager = SaveManager.getInstance();
@@ -64,8 +64,7 @@ export class LeaderboardManager {
     const modeEntries = entries.filter(e => e.mode === params.mode);
     const otherEntries = entries.filter(e => e.mode !== params.mode);
 
-    const sortedForTrim = [...modeEntries].sort((a, b) => b.score - a.score || b.timestamp - a.timestamp);
-    const trimmedModeEntries = sortedForTrim.slice(0, this.MAX_ENTRIES_PER_MODE);
+    const trimmedModeEntries = this.trimEntriesByAllDimensions(modeEntries);
 
     const allEntries = [...trimmedModeEntries, ...otherEntries];
 
@@ -142,6 +141,29 @@ export class LeaderboardManager {
     }
 
     return sorted;
+  }
+
+  private trimEntriesByAllDimensions(modeEntries: LeaderboardEntry[]): LeaderboardEntry[] {
+    const keptIds = new Set<string>();
+
+    const byScore = this.sortEntries(modeEntries, LeaderboardSortType.HIGH_SCORE)
+      .slice(0, this.MAX_ENTRIES_PER_DIMENSION);
+    byScore.forEach(e => keptIds.add(e.id));
+
+    const byFloor = this.sortEntries(modeEntries, LeaderboardSortType.HIGHEST_FLOOR)
+      .slice(0, this.MAX_ENTRIES_PER_DIMENSION);
+    byFloor.forEach(e => keptIds.add(e.id));
+
+    const byPills = this.sortEntries(modeEntries, LeaderboardSortType.TOTAL_PILLS)
+      .slice(0, this.MAX_ENTRIES_PER_DIMENSION);
+    byPills.forEach(e => keptIds.add(e.id));
+
+    const byClearTime = this.sortEntries(modeEntries, LeaderboardSortType.FASTEST_CLEAR)
+      .filter(e => e.clearTimeMs && e.clearTimeMs > 0)
+      .slice(0, this.MAX_ENTRIES_PER_DIMENSION);
+    byClearTime.forEach(e => keptIds.add(e.id));
+
+    return modeEntries.filter(e => keptIds.has(e.id));
   }
 
   getBestByMode(mode: LeaderboardGameMode): {
