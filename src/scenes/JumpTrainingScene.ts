@@ -337,6 +337,7 @@ export class JumpTrainingScene extends Phaser.Scene {
     this.isEnded = true;
 
     this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
 
     this.saveManager.saveJumpTrainingScore({

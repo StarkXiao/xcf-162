@@ -1,4 +1,4 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType, AudioSettings } from '../types';
 import { GameConfig } from '../config/GameConfig';
 import { getCurrentSeason, pickWeeklyTasks, SeasonCumulativeTasks } from '../config/SeasonConfig';
 
@@ -125,6 +125,14 @@ export class SaveManager {
     return nextMonday.getTime();
   }
 
+  private defaultAudioSettings: AudioSettings = {
+    musicVolume: 70,
+    sfxVolume: 80,
+    musicMuted: false,
+    sfxMuted: false,
+    adaptiveMixing: true
+  };
+
   private defaultData: SaveData = {
     highScore: 0,
     totalPills: 0,
@@ -158,7 +166,8 @@ export class SaveManager {
     },
     achievements: this.defaultAchievementData,
     season: this.getDefaultSeasonData(),
-    club: this.getDefaultClubData()
+    club: this.getDefaultClubData(),
+    audio: this.defaultAudioSettings
   };
 
   private constructor() {
@@ -185,7 +194,11 @@ export class SaveManager {
         const parsed = JSON.parse(saved);
         return {
           ...this.defaultData,
-          ...parsed
+          ...parsed,
+          audio: {
+            ...this.defaultAudioSettings,
+            ...(parsed.audio || {})
+          }
         };
       }
       return { ...this.defaultData };
@@ -668,6 +681,59 @@ export class SaveManager {
     }
 
     return { seasonChanged, weeklyReset };
+  }
+
+  getAudioSettings(): AudioSettings {
+    return { ...this.defaultAudioSettings, ...(this.getSaveData().audio || {}) };
+  }
+
+  saveAudioSettings(settings: Partial<AudioSettings>): void {
+    const current = this.getAudioSettings();
+    const updated: AudioSettings = {
+      ...current,
+      ...settings
+    };
+    this.saveGameData({ audio: updated });
+  }
+
+  getMusicVolume(): number {
+    return this.getAudioSettings().musicVolume;
+  }
+
+  setMusicVolume(volume: number): void {
+    this.saveAudioSettings({ musicVolume: Math.max(0, Math.min(100, volume)) });
+  }
+
+  getSFXVolume(): number {
+    return this.getAudioSettings().sfxVolume;
+  }
+
+  setSFXVolume(volume: number): void {
+    this.saveAudioSettings({ sfxVolume: Math.max(0, Math.min(100, volume)) });
+  }
+
+  isMusicMuted(): boolean {
+    return this.getAudioSettings().musicMuted;
+  }
+
+  setMusicMuted(muted: boolean): void {
+    this.saveAudioSettings({ musicMuted: muted });
+  }
+
+  isSFXMuted(): boolean {
+    return this.getAudioSettings().sfxMuted;
+  }
+
+  setSFXMuted(muted: boolean): void {
+    this.saveAudioSettings({ sfxMuted: muted });
+  }
+
+  isAdaptiveMixingEnabled(): boolean {
+    return this.getAudioSettings().adaptiveMixing;
+  }
+
+  setAdaptiveMixingEnabled(enabled: boolean): void {
+    this.saveAudioSettings({ adaptiveMixing: enabled });
   }
 }
 

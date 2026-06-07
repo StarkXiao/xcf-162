@@ -349,7 +349,9 @@ export class MenuScene extends Phaser.Scene {
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 730, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+    this.createAudioSettings();
+
+    this.add.text(GameConfig.width / 2, 755, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
       fontSize: '9px',
       color: '#666666'
     }).setOrigin(0.5);
@@ -385,5 +387,200 @@ export class MenuScene extends Phaser.Scene {
       const pulse = Math.sin(this.time.now * 0.003 + index) * 0.3 + 0.5;
       light.setAlpha(pulse);
     });
+  }
+
+  private createAudioSettings(): void {
+    const baseY = 738;
+
+    this.add.text(20, baseY - 14, '🔊 音频设置', {
+      fontSize: '11px',
+      color: '#66ccff',
+      fontStyle: 'bold'
+    }).setOrigin(0, 0);
+
+    const musicMuteBtn = this.add.text(20, baseY + 8, '', {
+      fontSize: '14px',
+      color: '#ffffff',
+      backgroundColor: '#333355',
+      padding: { left: 6, right: 6, top: 3, bottom: 3 }
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+
+    this.add.text(50, baseY + 8, '🎵', {
+      fontSize: '12px',
+      color: '#ff99cc'
+    }).setOrigin(0, 0.5);
+
+    const musicSliderBg = this.add.graphics();
+    const musicSliderX = 70;
+    const musicSliderY = baseY + 8;
+    const musicSliderW = 80;
+    const musicSliderH = 6;
+    musicSliderBg.fillStyle(0x333344, 1);
+    musicSliderBg.fillRoundedRect(musicSliderX, musicSliderY - musicSliderH / 2, musicSliderW, musicSliderH, 3);
+
+    const musicSliderFill = this.add.graphics();
+    const musicSliderKnob = this.add.circle(musicSliderX, musicSliderY, 6, 0xff99cc).setInteractive({ useHandCursor: true });
+
+    const musicValueText = this.add.text(musicSliderX + musicSliderW + 8, musicSliderY, '', {
+      fontSize: '11px',
+      color: '#cccccc'
+    }).setOrigin(0, 0.5);
+
+    const sfxMuteBtn = this.add.text(GameConfig.width - 200, baseY + 8, '', {
+      fontSize: '14px',
+      color: '#ffffff',
+      backgroundColor: '#333355',
+      padding: { left: 6, right: 6, top: 3, bottom: 3 }
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+
+    this.add.text(GameConfig.width - 170, baseY + 8, '🔔', {
+      fontSize: '12px',
+      color: '#66ff99'
+    }).setOrigin(0, 0.5);
+
+    const sfxSliderBg = this.add.graphics();
+    const sfxSliderX = GameConfig.width - 150;
+    const sfxSliderY = baseY + 8;
+    const sfxSliderW = 80;
+    const sfxSliderH = 6;
+    sfxSliderBg.fillStyle(0x333344, 1);
+    sfxSliderBg.fillRoundedRect(sfxSliderX, sfxSliderY - sfxSliderH / 2, sfxSliderW, sfxSliderH, 3);
+
+    const sfxSliderFill = this.add.graphics();
+    const sfxSliderKnob = this.add.circle(sfxSliderX, sfxSliderY, 6, 0x66ff99).setInteractive({ useHandCursor: true });
+
+    const sfxValueText = this.add.text(sfxSliderX + sfxSliderW + 8, sfxSliderY, '', {
+      fontSize: '11px',
+      color: '#cccccc'
+    }).setOrigin(0, 0.5);
+
+    const adaptiveBtn = this.add.text(GameConfig.width / 2, baseY - 10, '', {
+      fontSize: '10px',
+      color: '#ffffff',
+      backgroundColor: '#224466',
+      padding: { left: 6, right: 6, top: 2, bottom: 2 },
+      fontStyle: 'bold'
+    }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true });
+
+    const updateMusicSlider = () => {
+      const vol = this.audioManager.getMusicVolume();
+      const muted = !this.audioManager.isMusicEnabled();
+      const posX = musicSliderX + (muted ? 0 : (vol / 100) * musicSliderW);
+      musicSliderFill.clear();
+      musicSliderFill.fillStyle(muted ? 0x666666 : 0xff99cc, 1);
+      musicSliderFill.fillRoundedRect(musicSliderX, musicSliderY - musicSliderH / 2, muted ? 0 : (vol / 100) * musicSliderW, musicSliderH, 3);
+      musicSliderKnob.setX(posX);
+      musicSliderKnob.setFillStyle(muted ? 0x666666 : 0xff99cc);
+      musicValueText.setText(muted ? '静音' : `${vol}%`);
+      musicValueText.setColor(muted ? '#666666' : '#cccccc');
+      musicMuteBtn.setText(muted ? '🔇' : '🔊');
+      musicMuteBtn.setBackgroundColor(muted ? '#553333' : '#333355');
+    };
+
+    const updateSfxSlider = () => {
+      const vol = this.audioManager.getSFXVolume();
+      const muted = !this.audioManager.isSFXEnabled();
+      const posX = sfxSliderX + (muted ? 0 : (vol / 100) * sfxSliderW);
+      sfxSliderFill.clear();
+      sfxSliderFill.fillStyle(muted ? 0x666666 : 0x66ff99, 1);
+      sfxSliderFill.fillRoundedRect(sfxSliderX, sfxSliderY - sfxSliderH / 2, muted ? 0 : (vol / 100) * sfxSliderW, sfxSliderH, 3);
+      sfxSliderKnob.setX(posX);
+      sfxSliderKnob.setFillStyle(muted ? 0x666666 : 0x66ff99);
+      sfxValueText.setText(muted ? '静音' : `${vol}%`);
+      sfxValueText.setColor(muted ? '#666666' : '#cccccc');
+      sfxMuteBtn.setText(muted ? '🔇' : '🔊');
+      sfxMuteBtn.setBackgroundColor(muted ? '#553333' : '#333355');
+    };
+
+    const updateAdaptiveBtn = () => {
+      const enabled = this.audioManager.isAdaptiveMixingEnabled();
+      adaptiveBtn.setText(enabled ? '⚠ 危险混音: 开' : '⚠ 危险混音: 关');
+      adaptiveBtn.setBackgroundColor(enabled ? '#225588' : '#333344');
+      adaptiveBtn.setColor(enabled ? '#aaddff' : '#888888');
+    };
+
+    musicMuteBtn.on('pointerover', () => {
+      if (!this.audioManager.isMusicEnabled()) return;
+      musicMuteBtn.setBackgroundColor('#555577');
+    });
+    musicMuteBtn.on('pointerout', () => updateMusicSlider());
+    musicMuteBtn.on('pointerdown', () => {
+      this.audioManager.toggleMusic();
+      updateMusicSlider();
+    });
+
+    sfxMuteBtn.on('pointerover', () => {
+      if (!this.audioManager.isSFXEnabled()) return;
+      sfxMuteBtn.setBackgroundColor('#555577');
+    });
+    sfxMuteBtn.on('pointerout', () => updateSfxSlider());
+    sfxMuteBtn.on('pointerdown', () => {
+      this.audioManager.toggleSFX();
+      updateSfxSlider();
+      this.audioManager.play('select');
+    });
+
+    adaptiveBtn.on('pointerover', () => {
+      if (this.audioManager.isAdaptiveMixingEnabled()) {
+        adaptiveBtn.setBackgroundColor('#3366aa');
+      }
+    });
+    adaptiveBtn.on('pointerout', () => updateAdaptiveBtn());
+    adaptiveBtn.on('pointerdown', () => {
+      this.audioManager.toggleAdaptiveMixing();
+      updateAdaptiveBtn();
+      this.audioManager.play('select');
+    });
+
+    const setupSliderDrag = (
+      knob: Phaser.GameObjects.Arc,
+      sliderX: number,
+      sliderW: number,
+      onUpdate: (percent: number) => void
+    ) => {
+      let dragging = false;
+
+      const updateFromPointer = (pointer: Phaser.Input.Pointer) => {
+        const localX = Math.max(sliderX, Math.min(sliderX + sliderW, pointer.x));
+        const percent = Math.round(((localX - sliderX) / sliderW) * 100);
+        onUpdate(percent);
+      };
+
+      knob.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        dragging = true;
+        updateFromPointer(pointer);
+      });
+
+      this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+        if (dragging) {
+          updateFromPointer(pointer);
+        }
+      });
+
+      this.input.on('pointerup', () => {
+        dragging = false;
+      });
+    };
+
+    setupSliderDrag(musicSliderKnob, musicSliderX, musicSliderW, (percent: number) => {
+      this.audioManager.setMusicVolume(percent);
+      if (percent > 0 && !this.audioManager.isMusicEnabled()) {
+        this.audioManager.setMusicMuted(false);
+      }
+      updateMusicSlider();
+    });
+
+    setupSliderDrag(sfxSliderKnob, sfxSliderX, sfxSliderW, (percent: number) => {
+      this.audioManager.setSFXVolume(percent);
+      if (percent > 0 && !this.audioManager.isSFXEnabled()) {
+        this.audioManager.setSFXMuted(false);
+      }
+      updateSfxSlider();
+      if (Math.random() < 0.15) this.audioManager.play('hover');
+    });
+
+    updateMusicSlider();
+    updateSfxSlider();
+    updateAdaptiveBtn();
   }
 }

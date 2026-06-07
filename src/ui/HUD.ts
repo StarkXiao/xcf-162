@@ -49,6 +49,8 @@ export class HUD {
   private currentPillCount: number = 0;
   private shopItemButtons: Map<ShopItemType, Phaser.GameObjects.Text> = new Map();
 
+  private volumeSliderContainer: Phaser.GameObjects.Container | null = null;
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.audioManager = AudioManager.getInstance();
@@ -177,31 +179,65 @@ export class HUD {
       fontStyle: 'bold'
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
 
-    this.musicBtn = this.scene.add.text(10, GameConfig.height - 40 + scrollY, '♪', {
-      fontSize: '24px',
+    this.musicBtn = this.scene.add.text(10, GameConfig.height - 40 + scrollY, '', {
+      fontSize: '12px',
       color: '#ffffff',
-      backgroundColor: '#222222',
-      padding: { left: 10, right: 10, top: 5, bottom: 5 }
+      backgroundColor: '#222244',
+      padding: { left: 8, right: 8, top: 8, bottom: 8 },
+      fontStyle: 'bold'
     }).setScrollFactor(0).setDepth(101).setInteractive({ useHandCursor: true });
 
+    let musicPressTimer: Phaser.Time.TimerEvent | null = null;
+    let musicLongPressed = false;
     this.musicBtn.on('pointerdown', () => {
-      const enabled = this.audioManager.toggleMusic();
-      this.musicBtn.setColor(enabled ? '#ffffff' : '#666666');
-      this.audioManager.play('select');
+      musicLongPressed = false;
+      musicPressTimer = this.scene.time.delayedCall(300, () => {
+        musicLongPressed = true;
+        this.showMusicVolumeSlider();
+      });
+    });
+    this.musicBtn.on('pointerup', () => {
+      if (musicPressTimer) musicPressTimer.remove();
+      if (!musicLongPressed) {
+        this.audioManager.toggleMusic();
+        this.updateAudioButtons();
+        this.audioManager.play('select');
+      }
+    });
+    this.musicBtn.on('pointerout', () => {
+      if (musicPressTimer) musicPressTimer.remove();
     });
 
-    this.sfxBtn = this.scene.add.text(60, GameConfig.height - 40 + scrollY, '🔊', {
-      fontSize: '20px',
+    this.sfxBtn = this.scene.add.text(75, GameConfig.height - 40 + scrollY, '', {
+      fontSize: '12px',
       color: '#ffffff',
-      backgroundColor: '#222222',
-      padding: { left: 10, right: 10, top: 7, bottom: 7 }
+      backgroundColor: '#224422',
+      padding: { left: 8, right: 8, top: 8, bottom: 8 },
+      fontStyle: 'bold'
     }).setScrollFactor(0).setDepth(101).setInteractive({ useHandCursor: true });
 
+    let sfxPressTimer: Phaser.Time.TimerEvent | null = null;
+    let sfxLongPressed = false;
     this.sfxBtn.on('pointerdown', () => {
-      const enabled = this.audioManager.toggleSFX();
-      this.sfxBtn.setColor(enabled ? '#ffffff' : '#666666');
-      this.audioManager.play('select');
+      sfxLongPressed = false;
+      sfxPressTimer = this.scene.time.delayedCall(300, () => {
+        sfxLongPressed = true;
+        this.showSfxVolumeSlider();
+      });
     });
+    this.sfxBtn.on('pointerup', () => {
+      if (sfxPressTimer) sfxPressTimer.remove();
+      if (!sfxLongPressed) {
+        this.audioManager.toggleSFX();
+        this.updateAudioButtons();
+        this.audioManager.play('select');
+      }
+    });
+    this.sfxBtn.on('pointerout', () => {
+      if (sfxPressTimer) sfxPressTimer.remove();
+    });
+
+    this.updateAudioButtons();
 
     this.shopBtn = this.scene.add.text(GameConfig.width - 55, GameConfig.height - 40 + scrollY, '🛒', {
       fontSize: '22px',
@@ -894,6 +930,194 @@ export class HUD {
       duration: 300,
       ease: 'Elastic.easeOut'
     });
+  }
+
+  private updateAudioButtons(): void {
+    const musicVol = this.audioManager.getMusicVolume();
+    const musicEnabled = this.audioManager.isMusicEnabled();
+    this.musicBtn.setText(musicEnabled ? `🎵${musicVol}%` : '🎵🔇');
+    this.musicBtn.setColor(musicEnabled ? '#ffffff' : '#666666');
+    this.musicBtn.setBackgroundColor(musicEnabled ? '#222244' : '#332222');
+
+    const sfxVol = this.audioManager.getSFXVolume();
+    const sfxEnabled = this.audioManager.isSFXEnabled();
+    this.sfxBtn.setText(sfxEnabled ? `🔔${sfxVol}%` : '🔔🔇');
+    this.sfxBtn.setColor(sfxEnabled ? '#ffffff' : '#666666');
+    this.sfxBtn.setBackgroundColor(sfxEnabled ? '#224422' : '#332222');
+  }
+
+  private showMusicVolumeSlider(): void {
+    this.showVolumeSlider('music');
+  }
+
+  private showSfxVolumeSlider(): void {
+    this.showVolumeSlider('sfx');
+  }
+
+  private showVolumeSlider(type: 'music' | 'sfx'): void {
+    this.hideVolumeSlider();
+
+    const scrollY = this.scene.cameras.main.scrollY;
+    const container = this.scene.add.container(0, 0).setScrollFactor(0).setDepth(140);
+
+    const isMusic = type === 'music';
+    const anchorX = isMusic ? 10 : 75;
+    const color = isMusic ? 0xff99cc : 0x66ff99;
+    const colorHex = isMusic ? '#ff99cc' : '#66ff99';
+    const label = isMusic ? '🎵 音乐音量' : '🔔 音效音量';
+
+    const panelW = 160;
+    const panelH = 65;
+    const panelX = anchorX;
+    const panelY = GameConfig.height - 115 + scrollY;
+
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x0a0a20, 0.95);
+    bg.fillRoundedRect(panelX, panelY, panelW, panelH, 8);
+    bg.lineStyle(2, color, 0.8);
+    bg.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
+
+    const title = this.scene.add.text(panelX + 10, panelY + 10, label, {
+      fontSize: '12px',
+      color: colorHex,
+      fontStyle: 'bold'
+    });
+
+    const sliderX = panelX + 15;
+    const sliderY = panelY + 35;
+    const sliderW = panelW - 30;
+    const sliderH = 6;
+
+    const sliderBg = this.scene.add.graphics();
+    sliderBg.fillStyle(0x333344, 1);
+    sliderBg.fillRoundedRect(sliderX, sliderY - sliderH / 2, sliderW, sliderH, 3);
+
+    const sliderFill = this.scene.add.graphics();
+
+    const currentVol = isMusic ? this.audioManager.getMusicVolume() : this.audioManager.getSFXVolume();
+    const muted = isMusic ? !this.audioManager.isMusicEnabled() : !this.audioManager.isSFXEnabled();
+    const fillW = muted ? 0 : (currentVol / 100) * sliderW;
+    sliderFill.fillStyle(color, 1);
+    sliderFill.fillRoundedRect(sliderX, sliderY - sliderH / 2, fillW, sliderH, 3);
+
+    const knobX = sliderX + (muted ? 0 : (currentVol / 100) * sliderW);
+    const knob = this.scene.add.circle(knobX, sliderY, 7, color).setInteractive({ useHandCursor: true });
+
+    const valueText = this.scene.add.text(panelX + panelW - 10, panelY + 10, muted ? '静音' : `${currentVol}%`, {
+      fontSize: '12px',
+      color: muted ? '#666666' : '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0);
+
+    const muteBtn = this.scene.add.text(panelX + 10, panelY + panelH - 22, '', {
+      fontSize: '11px',
+      color: '#ffffff',
+      backgroundColor: muted ? '#553333' : '#224466',
+      padding: { left: 6, right: 6, top: 2, bottom: 2 },
+      fontStyle: 'bold'
+    }).setInteractive({ useHandCursor: true });
+    muteBtn.setText(muted ? '🔇 已静音' : '🔊 点击静音');
+
+    const closeBtn = this.scene.add.text(panelX + panelW - 10, panelY + panelH - 18, '✕', {
+      fontSize: '12px',
+      color: '#ff6666',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    container.add([bg, title, sliderBg, sliderFill, knob, valueText, muteBtn, closeBtn]);
+    this.volumeSliderContainer = container;
+
+    let dragging = false;
+
+    const updateFromPointer = (pointer: Phaser.Input.Pointer) => {
+      const localX = Math.max(sliderX, Math.min(sliderX + sliderW, pointer.x));
+      const percent = Math.round(((localX - sliderX) / sliderW) * 100);
+
+      if (isMusic) {
+        this.audioManager.setMusicVolume(percent);
+        if (percent > 0 && !this.audioManager.isMusicEnabled()) {
+          this.audioManager.setMusicMuted(false);
+        }
+      } else {
+        this.audioManager.setSFXVolume(percent);
+        if (percent > 0 && !this.audioManager.isSFXEnabled()) {
+          this.audioManager.setSFXMuted(false);
+        }
+      }
+
+      const isMutedNow = isMusic ? !this.audioManager.isMusicEnabled() : !this.audioManager.isSFXEnabled();
+      const newVol = isMusic ? this.audioManager.getMusicVolume() : this.audioManager.getSFXVolume();
+      const newFillW = isMutedNow ? 0 : (newVol / 100) * sliderW;
+      sliderFill.clear();
+      sliderFill.fillStyle(color, 1);
+      sliderFill.fillRoundedRect(sliderX, sliderY - sliderH / 2, newFillW, sliderH, 3);
+      knob.setX(sliderX + (isMutedNow ? 0 : (newVol / 100) * sliderW));
+      valueText.setText(isMutedNow ? '静音' : `${newVol}%`);
+      valueText.setColor(isMutedNow ? '#666666' : '#ffffff');
+      muteBtn.setText(isMutedNow ? '🔇 已静音' : '🔊 点击静音');
+      muteBtn.setBackgroundColor(isMutedNow ? '#553333' : '#224466');
+      this.updateAudioButtons();
+    };
+
+    knob.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      dragging = true;
+      updateFromPointer(pointer);
+    });
+
+    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (dragging) {
+        updateFromPointer(pointer);
+      }
+    });
+
+    this.scene.input.on('pointerup', () => {
+      if (dragging) {
+        dragging = false;
+        if (!isMusic) this.audioManager.play('hover');
+      }
+    });
+
+    muteBtn.on('pointerover', () => {
+      const isMutedNow = isMusic ? !this.audioManager.isMusicEnabled() : !this.audioManager.isSFXEnabled();
+      if (!isMutedNow) muteBtn.setBackgroundColor('#3366aa');
+    });
+    muteBtn.on('pointerout', () => {
+      const isMutedNow = isMusic ? !this.audioManager.isMusicEnabled() : !this.audioManager.isSFXEnabled();
+      muteBtn.setBackgroundColor(isMutedNow ? '#553333' : '#224466');
+    });
+    muteBtn.on('pointerdown', () => {
+      if (isMusic) {
+        this.audioManager.toggleMusic();
+      } else {
+        this.audioManager.toggleSFX();
+      }
+      const isMutedNow = isMusic ? !this.audioManager.isMusicEnabled() : !this.audioManager.isSFXEnabled();
+      const newVol = isMusic ? this.audioManager.getMusicVolume() : this.audioManager.getSFXVolume();
+      const newFillW = isMutedNow ? 0 : (newVol / 100) * sliderW;
+      sliderFill.clear();
+      sliderFill.fillStyle(color, 1);
+      sliderFill.fillRoundedRect(sliderX, sliderY - sliderH / 2, newFillW, sliderH, 3);
+      knob.setX(sliderX + (isMutedNow ? 0 : (newVol / 100) * sliderW));
+      knob.setFillStyle(isMutedNow ? 0x666666 : color);
+      valueText.setText(isMutedNow ? '静音' : `${newVol}%`);
+      valueText.setColor(isMutedNow ? '#666666' : '#ffffff');
+      muteBtn.setText(isMutedNow ? '🔇 已静音' : '🔊 点击静音');
+      muteBtn.setBackgroundColor(isMutedNow ? '#553333' : '#224466');
+      this.updateAudioButtons();
+      if (!isMutedNow) this.audioManager.play('select');
+    });
+
+    closeBtn.on('pointerdown', () => {
+      this.hideVolumeSlider();
+      this.audioManager.play('select');
+    });
+  }
+
+  private hideVolumeSlider(): void {
+    if (this.volumeSliderContainer) {
+      this.volumeSliderContainer.destroy();
+      this.volumeSliderContainer = null;
+    }
   }
 }
 

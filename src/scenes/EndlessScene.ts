@@ -630,6 +630,7 @@ export class EndlessScene extends Phaser.Scene {
     const archiveManager = ArchiveManager.getInstance();
     archiveManager.checkAllArchives();
 
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
 

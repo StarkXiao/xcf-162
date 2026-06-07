@@ -418,6 +418,7 @@ export class PillTrainingScene extends Phaser.Scene {
     if (this.spawnTimer) this.spawnTimer.destroy();
     if (this.scoreTimer) this.scoreTimer.destroy();
 
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
 
     this.saveManager.savePillTrainingScore({

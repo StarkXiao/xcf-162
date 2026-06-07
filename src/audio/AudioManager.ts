@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { SaveManager } from '../utils/SaveManager';
 
 type SoundType = 'jump' | 'pill' | 'guard' | 'gameover' | 'hover' | 'select' | 'shield' | 'alert_surround' | 'alert_jump' | 'trap_collapse' | 'trap_respawn' | 'trap_move' | 'trap_toggle' | 'trap_land';
 
@@ -7,8 +8,20 @@ export class AudioManager {
   private scene!: Phaser.Scene;
   private sounds: Map<SoundType, Phaser.Sound.BaseSound> = new Map();
   private music!: Phaser.Sound.BaseSound;
-  private musicEnabled: boolean = true;
-  private sfxEnabled: boolean = true;
+  private saveManager!: SaveManager;
+
+  private musicVolume: number = 0.7;
+  private sfxVolume: number = 0.8;
+  private musicMuted: boolean = false;
+  private sfxMuted: boolean = false;
+  private adaptiveMixing: boolean = true;
+
+  private isDangerState: boolean = false;
+  private dangerMusicMultiplier: number = 0.3;
+  private dangerSfxMultiplier: number = 1.3;
+  private musicFadeTween: Phaser.Tweens.Tween | null = null;
+
+  private initialized: boolean = false;
 
   private constructor() {}
 
@@ -21,6 +34,9 @@ export class AudioManager {
 
   generateSounds(scene: Phaser.Scene): void {
     this.scene = scene;
+    this.saveManager = SaveManager.getInstance();
+    this.loadSettingsFromSave();
+
     const audioContext = (scene.game.sound as Phaser.Sound.WebAudioSoundManager).context;
 
     this.createTone('jump', 400, 600, 0.1, 'square', audioContext);
@@ -39,6 +55,28 @@ export class AudioManager {
     this.createTone('trap_land', 500, 350, 0.12, 'triangle', audioContext);
 
     this.createMusic(audioContext);
+    this.initialized = true;
+  }
+
+  private loadSettingsFromSave(): void {
+    if (!this.saveManager) return;
+    const settings = this.saveManager.getAudioSettings();
+    this.musicVolume = settings.musicVolume / 100;
+    this.sfxVolume = settings.sfxVolume / 100;
+    this.musicMuted = settings.musicMuted;
+    this.sfxMuted = settings.sfxMuted;
+    this.adaptiveMixing = settings.adaptiveMixing;
+  }
+
+  private persistSettings(): void {
+    if (!this.saveManager) return;
+    this.saveManager.saveAudioSettings({
+      musicVolume: Math.round(this.musicVolume * 100),
+      sfxVolume: Math.round(this.sfxVolume * 100),
+      musicMuted: this.musicMuted,
+      sfxMuted: this.sfxMuted,
+      adaptiveMixing: this.adaptiveMixing
+    });
   }
 
   private createAlertTone(key: SoundType, startFreq: number, endFreq: number, duration: number, type: OscillatorType, audioContext: AudioContext): void {
@@ -154,7 +192,7 @@ export class AudioManager {
     this.scene.game.cache.audio.add('music', arrayBuffer);
     this.music = this.scene.sound.add('music', {
       loop: true,
-      volume: 0.3
+      volume: this.getEffectiveMusicVolume()
     });
   }
 
@@ -194,17 +232,59 @@ export class AudioManager {
     return arrayBuffer;
   }
 
+  private getEffectiveMusicVolume(): number {
+    if (this.musicMuted) return 0;
+    let vol = this.musicVolume;
+    if (this.adaptiveMixing && this.isDangerState) {
+      vol *= this.dangerMusicMultiplier;
+    }
+    return vol;
+  }
+
+  private getEffectiveSfxVolume(): number {
+    if (this.sfxMuted) return 0;
+    let vol = this.sfxVolume;
+    if (this.adaptiveMixing && this.isDangerState) {
+      vol *= this.dangerSfxMultiplier;
+    }
+    return Math.min(1, vol);
+  }
+
+  private applyMusicVolume(): void {
+    if (!this.music) return;
+    const targetVol = this.getEffectiveMusicVolume();
+
+    if (this.musicFadeTween) {
+      this.musicFadeTween.stop();
+      this.musicFadeTween = null;
+    }
+
+    if (this.scene && this.scene.tweens) {
+      this.musicFadeTween = this.scene.tweens.add({
+        targets: this.music,
+        volume: targetVol,
+        duration: 400,
+        ease: 'Linear'
+      });
+    } else {
+      (this.music as any).volume = targetVol;
+    }
+  }
+
   play(key: SoundType): void {
-    if (!this.sfxEnabled) return;
-    const sound = this.sounds.get(key);
-    if (sound) {
-      sound.play();
+    if (!this.sfxMuted) {
+      const sound = this.sounds.get(key);
+      if (sound) {
+        (sound as any).volume = this.getEffectiveSfxVolume();
+        sound.play();
+      }
     }
   }
 
   playMusic(): void {
-    if (!this.musicEnabled) return;
+    if (this.musicMuted) return;
     if (this.music && !this.music.isPlaying) {
+      (this.music as any).volume = this.getEffectiveMusicVolume();
       this.music.play();
     }
   }
@@ -215,24 +295,98 @@ export class AudioManager {
     }
   }
 
+  setDangerState(isDanger: boolean): void {
+    if (!this.adaptiveMixing) return;
+    if (this.isDangerState === isDanger) return;
+    this.isDangerState = isDanger;
+    this.applyMusicVolume();
+  }
+
   toggleMusic(): boolean {
-    this.musicEnabled = !this.musicEnabled;
-    if (!this.musicEnabled) {
+    this.musicMuted = !this.musicMuted;
+    this.persistSettings();
+    if (this.musicMuted) {
       this.stopMusic();
+    } else {
+      this.playMusic();
     }
-    return this.musicEnabled;
+    return !this.musicMuted;
   }
 
   toggleSFX(): boolean {
-    this.sfxEnabled = !this.sfxEnabled;
-    return this.sfxEnabled;
+    this.sfxMuted = !this.sfxMuted;
+    this.persistSettings();
+    return !this.sfxMuted;
+  }
+
+  toggleAdaptiveMixing(): boolean {
+    this.adaptiveMixing = !this.adaptiveMixing;
+    this.persistSettings();
+    if (!this.adaptiveMixing) {
+      this.isDangerState = false;
+    }
+    this.applyMusicVolume();
+    return this.adaptiveMixing;
   }
 
   isMusicEnabled(): boolean {
-    return this.musicEnabled;
+    return !this.musicMuted;
   }
 
   isSFXEnabled(): boolean {
-    return this.sfxEnabled;
+    return !this.sfxMuted;
+  }
+
+  isAdaptiveMixingEnabled(): boolean {
+    return this.adaptiveMixing;
+  }
+
+  getMusicVolume(): number {
+    return Math.round(this.musicVolume * 100);
+  }
+
+  setMusicVolume(percent: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, percent / 100));
+    this.persistSettings();
+    this.applyMusicVolume();
+  }
+
+  getSFXVolume(): number {
+    return Math.round(this.sfxVolume * 100);
+  }
+
+  setSFXVolume(percent: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, percent / 100));
+    this.persistSettings();
+  }
+
+  setMusicMuted(muted: boolean): void {
+    if (this.musicMuted === muted) return;
+    this.musicMuted = muted;
+    this.persistSettings();
+    if (muted) {
+      this.stopMusic();
+    } else {
+      this.playMusic();
+    }
+  }
+
+  setSFXMuted(muted: boolean): void {
+    this.sfxMuted = muted;
+    this.persistSettings();
+  }
+
+  setAdaptiveMixingEnabled(enabled: boolean): void {
+    if (this.adaptiveMixing === enabled) return;
+    this.adaptiveMixing = enabled;
+    this.persistSettings();
+    if (!enabled) {
+      this.isDangerState = false;
+    }
+    this.applyMusicVolume();
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
   }
 }

@@ -390,6 +390,7 @@ export class DualGameScene extends Phaser.Scene {
     this.events.off('scoreMultiplierApplied', this.onScoreMultiplierApplied, this);
     this.timeManager?.pause?.();
     this.saveGameState();
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
 
     const winOverlay = this.add.graphics().setDepth(200);
@@ -925,6 +926,7 @@ export class DualGameScene extends Phaser.Scene {
 
     const recordFlags = this.saveGameState();
 
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
 

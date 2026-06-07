@@ -469,6 +469,7 @@ export class GuardTrainingScene extends Phaser.Scene {
     if (this.scoreTimer) this.scoreTimer.destroy();
     if (this.survivalTimer) this.survivalTimer.destroy();
 
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
 

@@ -299,6 +299,7 @@ export class GameScene extends Phaser.Scene {
     this.events.off('playerDoubleJump', this.onPlayerDoubleJump, this);
     this.timeManager?.pause?.();
     this.saveGameState();
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
 
     const winOverlay = this.add.graphics().setDepth(200);
@@ -859,6 +860,7 @@ export class GameScene extends Phaser.Scene {
 
     const recordFlags = this.saveGameState();
 
+    this.audioManager.setDangerState(false);
     this.audioManager.stopMusic();
     this.audioManager.play('gameover');
 
@@ -1046,7 +1048,42 @@ export class GameScene extends Phaser.Scene {
       this.hud.updateEventProgress(this.floorEventManager.getEventProgress());
     }
 
+    this.updateDangerState();
+
     this.hud.update();
+  }
+
+  private updateDangerState(): void {
+    if (!this.audioManager.isAdaptiveMixingEnabled()) return;
+
+    let isDanger = false;
+
+    for (const guard of this.guards) {
+      const dx = Math.abs(guard.x - this.player.x);
+      const dy = Math.abs(guard.y - this.player.y);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        isDanger = true;
+        break;
+      }
+    }
+
+    if (!isDanger && this.floorEventManager?.hasActiveEvent?.()) {
+      const currentEvent = this.floorEventManager.getCurrentEvent();
+      const eventType = currentEvent?.type;
+      if (eventType === 'guard_surge' || eventType === 'security_alert' || eventType === 'lights_out') {
+        isDanger = true;
+      }
+    }
+
+    if (!isDanger) {
+      const sideEffectState = this.player.getSideEffectState();
+      if (sideEffectState.addictionLevel >= 70 || sideEffectState.isHallucinating || sideEffectState.isOutOfControl) {
+        isDanger = true;
+      }
+    }
+
+    this.audioManager.setDangerState(isDanger);
   }
 
   getWorldScrollY(): number {

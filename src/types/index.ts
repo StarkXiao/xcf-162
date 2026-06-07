@@ -449,37 +449,6 @@ export interface SeasonData {
   };
 }
 
-export interface SaveData {
-  highScore: number;
-  totalPills: number;
-  gamesPlayed: number;
-  riskRewardBestScore: number;
-  riskRewardMode: boolean;
-  lastTimeOfDay: TimeOfDay;
-  totalDayCycles: number;
-  eventsTriggered: number;
-  maxCombo: number;
-  maxNoDamageFloors: number;
-  totalCombos: number;
-  trainingScores: TrainingScores;
-  endlessLeaderboard: EndlessLeaderboardEntry[];
-  endlessBestScore: number;
-  endlessBestFloor: number;
-  endlessGamesPlayed: number;
-  totalAddictionLevel: number;
-  maxAddictionReached: number;
-  totalHallucinationsTriggered: number;
-  totalLossOfControlTriggered: number;
-  totalShieldsPurchased: number;
-  totalSlowPulsesPurchased: number;
-  totalEmergencyBouncesPurchased: number;
-  totalPillsSpentInShop: number;
-  archive: ArchiveData;
-  achievements: AchievementData;
-  season: SeasonData;
-  club: ClubData;
-}
-
 export enum ClubUpgradeType {
   DECORATION = 'decoration',
   LIGHTING = 'lighting',
@@ -516,5 +485,45 @@ export interface ClubData {
   clubCoins: number;
   totalClubCoinsEarned: number;
   upgrades: Record<ClubUpgradeType, number>;
+}
+
+export interface AudioSettings {
+  musicVolume: number;
+  sfxVolume: number;
+  musicMuted: boolean;
+  sfxMuted: boolean;
+  adaptiveMixing: boolean;
+}
+
+export interface SaveData {
+  highScore: number;
+  totalPills: number;
+  gamesPlayed: number;
+  riskRewardBestScore: number;
+  riskRewardMode: boolean;
+  lastTimeOfDay: TimeOfDay;
+  totalDayCycles: number;
+  eventsTriggered: number;
+  maxCombo: number;
+  maxNoDamageFloors: number;
+  totalCombos: number;
+  trainingScores: TrainingScores;
+  endlessLeaderboard: EndlessLeaderboardEntry[];
+  endlessBestScore: number;
+  endlessBestFloor: number;
+  endlessGamesPlayed: number;
+  totalAddictionLevel: number;
+  maxAddictionReached: number;
+  totalHallucinationsTriggered: number;
+  totalLossOfControlTriggered: number;
+  totalShieldsPurchased: number;
+  totalSlowPulsesPurchased: number;
+  totalEmergencyBouncesPurchased: number;
+  totalPillsSpentInShop: number;
+  archive: ArchiveData;
+  achievements: AchievementData;
+  season: SeasonData;
+  club: ClubData;
+  audio: AudioSettings;
 }
 
