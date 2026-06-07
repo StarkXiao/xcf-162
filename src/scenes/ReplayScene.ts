@@ -11,6 +11,7 @@ export class ReplayScene extends Phaser.Scene {
   private contentHeight: number = 0;
   private scrollContainer!: Phaser.GameObjects.Container;
   private scrollMask!: Phaser.GameObjects.Graphics;
+  private scrollAreaHeight: number = 0;
   private isDragging: boolean = false;
   private dragStartY: number = 0;
   private dragStartScroll: number = 0;
@@ -125,33 +126,33 @@ export class ReplayScene extends Phaser.Scene {
     };
     const modeStr = modeLabels[record.gameMode] || record.gameMode;
 
-    this.add.text(x + 12, y + 14, `#${index + 1}  ${dateStr}`, {
+    const t1 = this.add.text(x + 12, y + 14, `#${index + 1}  ${dateStr}`, {
       fontSize: '12px',
       color: '#aa88cc'
     }).setOrigin(0, 0.5);
 
-    this.add.text(x + w - 12, y + 14, `⏱ ${duration}s`, {
+    const t2 = this.add.text(x + w - 12, y + 14, `⏱ ${duration}s`, {
       fontSize: '11px',
       color: '#888888'
     }).setOrigin(1, 0.5);
 
-    this.add.text(x + 12, y + 34, `${record.deathReason || '未知原因'}`, {
+    const t3 = this.add.text(x + 12, y + 34, `${record.deathReason || '未知原因'}`, {
       fontSize: '14px',
       color: '#ff8888',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5);
 
-    this.add.text(x + 12, y + 54, `[${modeStr}] ${record.finalFloor}F`, {
+    const t4 = this.add.text(x + 12, y + 54, `[${modeStr}] ${record.finalFloor}F`, {
       fontSize: '12px',
       color: '#66ccff'
     }).setOrigin(0, 0.5);
 
-    this.add.text(x + w / 2, y + 54, `💊${record.pillsCollected || 0}  🔥x${record.maxCombo || 0}`, {
+    const t5 = this.add.text(x + w / 2, y + 54, `💊${record.pillsCollected || 0}  🔥x${record.maxCombo || 0}`, {
       fontSize: '11px',
       color: '#ffaa66'
     }).setOrigin(0.5, 0.5);
 
-    this.add.text(x + w - 12, y + 54, `${record.finalScore}分`, {
+    const t6 = this.add.text(x + w - 12, y + 54, `${record.finalScore}分`, {
       fontSize: '13px',
       color: '#ffcc00',
       fontStyle: 'bold'
@@ -172,7 +173,7 @@ export class ReplayScene extends Phaser.Scene {
       this.showReplayDetail(record);
     });
 
-    this.scrollContainer.add([itemBg]);
+    this.scrollContainer.add([itemBg, t1, t2, t3, t4, t5, t6]);
   }
 
   private showReplayDetail(record: ReplayData): void {
@@ -241,35 +242,78 @@ export class ReplayScene extends Phaser.Scene {
 
     infoY += 40;
 
-    if (record.shopItemsUsed && (record.shopItemsUsed.shield > 0 || record.shopItemsUsed.slowPulse > 0 || record.shopItemsUsed.bounce > 0)) {
-      const shopParts: string[] = [];
-      if (record.shopItemsUsed.shield > 0) shopParts.push(`🛡${record.shopItemsUsed.shield}`);
-      if (record.shopItemsUsed.slowPulse > 0) shopParts.push(`❄${record.shopItemsUsed.slowPulse}`);
-      if (record.shopItemsUsed.bounce > 0) shopParts.push(`⬆${record.shopItemsUsed.bounce}`);
-      if (record.shopItemsUsed.pillsSpent > 0) shopParts.push(`💊${record.shopItemsUsed.pillsSpent}`);
+    const pillUseEvents = (record.events || []).filter(e => e.type === ReplayEventType.ITEM_PILL_USE);
+    const shopEvents = (record.events || []).filter(e => e.type === ReplayEventType.ITEM_SHOP_PURCHASE);
 
-      this.add.text(GameConfig.width / 2, infoY, `商店道具: ${shopParts.join('  ')}`, {
-        fontSize: '12px',
-        color: '#ffdd44'
-      }).setOrigin(0.5);
-      infoY += 20;
+    if (pillUseEvents.length > 0) {
+      this.add.text(20, infoY, `💉 药片使用 (${pillUseEvents.length}次):`, {
+        fontSize: '11px',
+        color: '#ff66cc',
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+
+      const pillLabels: Record<string, string> = {
+        'speed': '⚡加速',
+        'slow': '❄减速',
+        'shield': '🛡护盾',
+        'score': '💎得分'
+      };
+
+      const pillSummary = pillUseEvents.slice(0, 10).map(e => {
+        const label = pillLabels[e.pillType || ''] || e.pillType || '?';
+        const floor = e.floorNumber ? `@${e.floorNumber}F` : '';
+        return `${label}${floor}`;
+      }).join(' → ');
+
+      const displayText = pillUseEvents.length > 10
+        ? pillSummary + ` → ...(+${pillUseEvents.length - 10}次)`
+        : pillSummary;
+
+      this.add.text(20, infoY + 14, displayText, {
+        fontSize: '10px',
+        color: '#ddaaff',
+        wordWrap: { width: GameConfig.width - 40 }
+      }).setOrigin(0, 0);
+      infoY += 32;
+    }
+
+    if (shopEvents.length > 0) {
+      const shopParts: string[] = [];
+      if (record.shopItemsUsed?.shield > 0) shopParts.push(`🛡护盾x${record.shopItemsUsed.shield}`);
+      if (record.shopItemsUsed?.slowPulse > 0) shopParts.push(`❄减速x${record.shopItemsUsed.slowPulse}`);
+      if (record.shopItemsUsed?.bounce > 0) shopParts.push(`⬆弹跳x${record.shopItemsUsed.bounce}`);
+      if (record.shopItemsUsed?.pillsSpent > 0) shopParts.push(`共消耗💊${record.shopItemsUsed.pillsSpent}`);
+
+      this.add.text(20, infoY, `🛒 商店道具: ${shopParts.join('  ')}`, {
+        fontSize: '11px',
+        color: '#ffdd44',
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+      infoY += 18;
     }
 
     if ((record.hallucinations || 0) > 0 || (record.lossOfControl || 0) > 0) {
       const seParts: string[] = [];
       if ((record.hallucinations || 0) > 0) seParts.push(`👁幻觉x${record.hallucinations}`);
       if ((record.lossOfControl || 0) > 0) seParts.push(`😵失控x${record.lossOfControl}`);
-      this.add.text(GameConfig.width / 2, infoY, `副作用: ${seParts.join('  ')}`, {
+      this.add.text(20, infoY, `副作用: ${seParts.join('  ')}`, {
         fontSize: '11px',
-        color: '#ff66ff'
-      }).setOrigin(0.5);
+        color: '#ff66ff',
+        fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
       infoY += 18;
     }
 
     const line = this.add.graphics();
     line.lineStyle(1, 0x444466, 0.8);
     line.lineBetween(15, infoY, GameConfig.width - 15, infoY);
-    infoY += 8;
+    infoY += 4;
+
+    this.add.text(20, infoY, `📊 完整事件时间线 (${(record.events || []).length}条)`, {
+      fontSize: '12px',
+      color: '#aabbcc'
+    }).setOrigin(0, 0.5);
+    infoY += 20;
 
     const listY = infoY;
     const listHeight = GameConfig.height - listY - 60;
@@ -316,21 +360,28 @@ export class ReplayScene extends Phaser.Scene {
     }
     bg.fillRoundedRect(x, y, w, h, 4);
 
-    this.add.text(x + 8, y + h / 2, text, {
+    const t1 = this.add.text(x + 8, y + h / 2, text, {
       fontSize: '12px',
       color
     }).setOrigin(0, 0.5);
 
+    const children: Phaser.GameObjects.GameObject[] = [bg, t1];
+
     if (event.scoreGain !== undefined && event.scoreGain > 0) {
-      this.add.text(x + w - 8, y + h / 2, `+${event.scoreGain}`, {
+      const t2 = this.add.text(x + w - 8, y + h / 2, `+${event.scoreGain}`, {
         fontSize: '11px',
         color: '#ffff66',
         fontStyle: 'bold'
       }).setOrigin(1, 0.5);
+      children.push(t2);
     }
+
+    this.scrollContainer.add(children);
   }
 
   private createScrollArea(x: number, y: number, w: number, h: number): void {
+    this.scrollAreaHeight = h;
+
     this.scrollMask = this.add.graphics();
     this.scrollMask.fillStyle(0xffffff, 1);
     this.scrollMask.fillRect(x, y, w, h);
@@ -369,17 +420,10 @@ export class ReplayScene extends Phaser.Scene {
   }
 
   private setScroll(y: number): void {
-    const maxScroll = Math.max(0, this.contentHeight - (this.scrollMask ? (this.scrollMask as any).geometryMask?.geometry?.height || 0 : 0));
-    this.scrollY = Phaser.Math.Clamp(y, 0, Math.max(0, maxScroll));
+    const maxScroll = Math.max(0, this.contentHeight - this.scrollAreaHeight);
+    this.scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
     if (this.scrollContainer) {
-      this.scrollContainer.y = (this.scrollMask as any)?.y - this.scrollY || 0;
-      const children = this.scrollContainer.list as Phaser.GameObjects.GameObject[];
-      children.forEach(child => {
-        if ('y' in child) {
-          // no-op, container handles positioning
-        }
-      });
-      this.scrollContainer.y = -this.scrollY;
+      this.scrollContainer.y = -this.scrollY + (this.scrollMask as any).y;
     }
   }
 

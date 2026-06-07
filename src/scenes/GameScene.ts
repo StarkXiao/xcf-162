@@ -795,6 +795,7 @@ export class GameScene extends Phaser.Scene {
     this.score += pillScore;
 
     this.replayManager.recordPillCollect(pillType, this.currentFloor, pillScore);
+    this.replayManager.recordPillUse(pillType, this.currentFloor);
 
     this.hud.updatePills(this.pillCount);
     this.hud.updateScore(this.score);
