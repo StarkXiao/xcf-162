@@ -495,6 +495,37 @@ export interface AudioSettings {
   adaptiveMixing: boolean;
 }
 
+export enum ReplayEventType {
+  FLOOR_CHANGE = 'floor_change',
+  COLLISION_GUARD = 'collision_guard',
+  COLLISION_PILL = 'collision_pill',
+  COLLISION_FALL = 'collision_fall',
+  COLLISION_TRAP = 'collision_trap',
+  SCORE_SURVIVAL = 'score_survival',
+  SCORE_FLOOR = 'score_floor',
+  SCORE_COMBO = 'score_combo',
+  SCORE_PILL = 'score_pill',
+  SCORE_NODAMAGE = 'score_nodamage'
+}
+
+export interface ReplayEvent {
+  timestamp: number;
+  type: ReplayEventType;
+  description: string;
+  details?: string;
+  scoreGain?: number;
+  floorNumber?: number;
+}
+
+export interface ReplayData {
+  events: ReplayEvent[];
+  finalFloor: number;
+  finalScore: number;
+  deathReason: string;
+  gameDuration: number;
+  date: string;
+}
+
 export interface SaveData {
   highScore: number;
   totalPills: number;
@@ -525,5 +556,6 @@ export interface SaveData {
   season: SeasonData;
   club: ClubData;
   audio: AudioSettings;
+  replayHistory: ReplayData[];
 }
 

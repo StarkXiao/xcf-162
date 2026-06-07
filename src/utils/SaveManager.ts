@@ -1,4 +1,4 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType, AudioSettings } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType, AudioSettings, ReplayData } from '../types';
 import { GameConfig } from '../config/GameConfig';
 import { getCurrentSeason, pickWeeklyTasks, SeasonCumulativeTasks } from '../config/SeasonConfig';
 
@@ -167,7 +167,8 @@ export class SaveManager {
     achievements: this.defaultAchievementData,
     season: this.getDefaultSeasonData(),
     club: this.getDefaultClubData(),
-    audio: this.defaultAudioSettings
+    audio: this.defaultAudioSettings,
+    replayHistory: []
   };
 
   private constructor() {
@@ -734,6 +735,25 @@ export class SaveManager {
 
   setAdaptiveMixingEnabled(enabled: boolean): void {
     this.saveAudioSettings({ adaptiveMixing: enabled });
+  }
+
+  getReplayHistory(): ReplayData[] {
+    const data = this.getSaveData();
+    return data.replayHistory || [];
+  }
+
+  addReplayToHistory(replay: ReplayData, maxEntries: number = 20): void {
+    const data = this.getSaveData();
+    const history = data.replayHistory || [];
+    history.unshift(replay);
+    if (history.length > maxEntries) {
+      history.length = maxEntries;
+    }
+    this.saveGameData({ replayHistory: history });
+  }
+
+  clearReplayHistory(): void {
+    this.saveGameData({ replayHistory: [] });
   }
 }
 
