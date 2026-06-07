@@ -54,7 +54,45 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('GameScene');
     });
 
-    const dualBtn = this.add.text(GameConfig.width / 2, 365, '🔄 双角色接力 🔄', {
+    const riskRewardEnabled = this.saveManager.isRiskRewardMode();
+    const riskRewardBtn = this.add.text(GameConfig.width / 2, 340, '', {
+      fontSize: '15px',
+      color: '#ffffff',
+      backgroundColor: riskRewardEnabled ? '#ff3300' : '#444466',
+      padding: { left: 16, right: 16, top: 6, bottom: 6 },
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    const updateRiskRewardBtn = () => {
+      const enabled = this.saveManager.isRiskRewardMode();
+      riskRewardBtn.setText(enabled ? '🔥 风险挑战: 开 🔥' : '⚪ 风险挑战: 关');
+      riskRewardBtn.setBackgroundColor(enabled ? '#ff3300' : '#444466');
+    };
+    updateRiskRewardBtn();
+
+    riskRewardBtn.on('pointerover', () => {
+      const enabled = this.saveManager.isRiskRewardMode();
+      riskRewardBtn.setBackgroundColor(enabled ? '#ff5522' : '#666688');
+      this.audioManager.play('hover');
+    });
+
+    riskRewardBtn.on('pointerout', () => {
+      updateRiskRewardBtn();
+    });
+
+    riskRewardBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      const newState = !this.saveManager.isRiskRewardMode();
+      this.saveManager.setRiskRewardMode(newState);
+      updateRiskRewardBtn();
+    });
+
+    this.add.text(GameConfig.width / 2, 362, '楼层越高得分倍率越高，但保安更快药片更少', {
+      fontSize: '9px',
+      color: '#ff9977'
+    }).setOrigin(0.5);
+
+    const dualBtn = this.add.text(GameConfig.width / 2, 390, '🔄 双角色接力 🔄', {
       fontSize: '26px',
       color: '#ffffff',
       backgroundColor: '#00ccaa',
@@ -84,7 +122,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('DualGameScene');
     });
 
-    const endlessBtn = this.add.text(GameConfig.width / 2, 435, '⚡ 无尽竞速 ⚡', {
+    const endlessBtn = this.add.text(GameConfig.width / 2, 455, '⚡ 无尽竞速 ⚡', {
       fontSize: '24px',
       color: '#ffffff',
       backgroundColor: '#9933ff',
@@ -114,7 +152,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('EndlessScene');
     });
 
-    const trainingBtn = this.add.text(GameConfig.width / 2, 495, '番外训练馆', {
+    const trainingBtn = this.add.text(GameConfig.width / 2, 510, '番外训练馆', {
       fontSize: '22px',
       color: '#ffffff',
       backgroundColor: '#00aaff',
@@ -135,7 +173,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('TrainingScene');
     });
 
-    const challengeBtn = this.add.text(GameConfig.width / 2, 545, '🎮 自定义挑战', {
+    const challengeBtn = this.add.text(GameConfig.width / 2, 555, '🎮 自定义挑战', {
       fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ff6633',
@@ -157,7 +195,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     const clubManager = ClubManager.getInstance();
-    const clubBtn = this.add.text(GameConfig.width / 2, 595, `🎵 夜店经营 💰${clubManager.getClubCoins()}`, {
+    const clubBtn = this.add.text(GameConfig.width / 2, 598, `🎵 夜店经营 💰${clubManager.getClubCoins()}`, {
       fontSize: '20px',
       color: '#ffffff',
       backgroundColor: '#ff00aa',
@@ -186,7 +224,7 @@ export class MenuScene extends Phaser.Scene {
     if (clubBuff.baseTimeBonus > 0) buffParts.push(`时间+${Math.floor(clubBuff.baseTimeBonus / 1000)}s`);
     if (buffParts.length > 0) clubBuffLabel = buffParts.join(' ');
 
-    this.add.text(GameConfig.width / 2, 618, clubBuffLabel, {
+    this.add.text(GameConfig.width / 2, 621, clubBuffLabel, {
       fontSize: '10px',
       color: '#ff99dd'
     }).setOrigin(0.5);
@@ -203,7 +241,7 @@ export class MenuScene extends Phaser.Scene {
     const hasNewSeason = seasonManager.hasClaimableRewards();
     const seasonLevelData = seasonManager.getLevelProgress();
 
-    const achievementBtn = this.add.text(GameConfig.width / 2, 642, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
+    const achievementBtn = this.add.text(GameConfig.width / 2, 645, `🏆 称号成就 ${hasNewAchievements ? '🔔' : ''}`, {
       fontSize: '17px',
       color: '#ffffff',
       backgroundColor: '#ffaa00',
@@ -235,12 +273,12 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('AchievementScene');
     });
 
-    this.add.text(GameConfig.width / 2, 665, `成就: ${achUnlocked}/${achTotal}`, {
+    this.add.text(GameConfig.width / 2, 668, `成就: ${achUnlocked}/${achTotal}`, {
       fontSize: '10px',
       color: '#ffcc66'
     }).setOrigin(0.5);
 
-    const seasonBtn = this.add.text(GameConfig.width / 2 - 110, 692, `🏅 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
+    const seasonBtn = this.add.text(GameConfig.width / 2 - 110, 690, `🏅 Lv.${seasonLevelData.currentLevel} ${hasNewSeason ? '🔔' : ''}`, {
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#00ccaa',
@@ -272,7 +310,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('SeasonScene');
     });
 
-    const archiveBtn = this.add.text(GameConfig.width / 2 + 110, 692, `📂 档案 ${hasNewUnlocks ? '🔔' : ''}`, {
+    const archiveBtn = this.add.text(GameConfig.width / 2 + 110, 690, `📂 档案 ${hasNewUnlocks ? '🔔' : ''}`, {
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#aa66ff',
@@ -305,12 +343,13 @@ export class MenuScene extends Phaser.Scene {
     });
 
     const saveData = this.saveManager.getSaveData();
-    this.add.text(GameConfig.width / 2, 718, `最高:${saveData.highScore} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
+    const riskBest = this.saveManager.getRiskRewardBestScore();
+    this.add.text(GameConfig.width / 2, 715, `最高:${saveData.highScore} | 🔥风险:${riskBest} | 无尽:${this.saveManager.getEndlessBestScore()} | 💰:${clubManager.getClubCoins()}`, {
       fontSize: '10px',
       color: '#ffcc00'
     }).setOrigin(0.5);
 
-    this.add.text(GameConfig.width / 2, 733, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
+    this.add.text(GameConfig.width / 2, 730, '← → 移动 | 空格 跳跃 | Shift 切换角色', {
       fontSize: '9px',
       color: '#666666'
     }).setOrigin(0.5);

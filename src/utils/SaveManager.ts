@@ -129,6 +129,8 @@ export class SaveManager {
     highScore: 0,
     totalPills: 0,
     gamesPlayed: 0,
+    riskRewardBestScore: 0,
+    riskRewardMode: false,
     lastTimeOfDay: TimeOfDay.DAWN,
     totalDayCycles: 0,
     eventsTriggered: 0,
@@ -435,6 +437,25 @@ export class SaveManager {
 
   getTotalPillsSpentInShop(): number {
     return this.getSaveData().totalPillsSpentInShop || 0;
+  }
+
+  isRiskRewardMode(): boolean {
+    return this.getSaveData().riskRewardMode || false;
+  }
+
+  setRiskRewardMode(enabled: boolean): void {
+    this.saveGameData({ riskRewardMode: enabled });
+  }
+
+  getRiskRewardBestScore(): number {
+    return this.getSaveData().riskRewardBestScore || 0;
+  }
+
+  setRiskRewardBestScore(score: number): void {
+    const current = this.getRiskRewardBestScore();
+    if (score > current) {
+      this.saveGameData({ riskRewardBestScore: score });
+    }
   }
 
   savePillTrainingScore(score: Partial<PillTrainingScore>): void {

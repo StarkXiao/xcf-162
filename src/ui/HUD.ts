@@ -29,6 +29,7 @@ export class HUD {
   private currentEvent: FloorEvent | null = null;
   private comboText!: Phaser.GameObjects.Text;
   private noDamageText!: Phaser.GameObjects.Text;
+  private multiplierText!: Phaser.GameObjects.Text;
   private addictionBarBg!: Phaser.GameObjects.Graphics;
   private addictionBar!: Phaser.GameObjects.Graphics;
   private addictionText!: Phaser.GameObjects.Text;
@@ -138,6 +139,12 @@ export class HUD {
       color: '#66ff66',
       fontStyle: 'bold'
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
+
+    this.multiplierText = this.scene.add.text(GameConfig.width - 20, 50 + scrollY, '', {
+      fontSize: '16px',
+      color: '#ff6600',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(101).setAlpha(0);
 
     this.addictionIcon = this.scene.add.text(20, 75 + scrollY, '☠', {
       fontSize: '14px',
@@ -858,6 +865,35 @@ export class HUD {
     this.pillText.setText(count.toString());
     this.currentPillCount = count;
     this.updateShopItemButtons();
+  }
+
+  updateMultiplier(multiplier: number, isRiskReward: boolean = false): void {
+    if (multiplier <= 1.0 && !isRiskReward) {
+      this.scene.tweens.add({
+        targets: this.multiplierText,
+        alpha: 0,
+        duration: 200
+      });
+      return;
+    }
+
+    const label = isRiskReward ? '🔥 风险x' : 'x';
+    this.multiplierText.setText(`${label}${multiplier.toFixed(1)}`);
+    this.multiplierText.setAlpha(1);
+
+    if (isRiskReward) {
+      const hue = Math.min(30, (multiplier - 1) * 10);
+      this.multiplierText.setColor(`hsl(${30 - hue}, 100%, ${Math.max(40, 70 - multiplier * 3)}%)`);
+    } else {
+      this.multiplierText.setColor('#ffcc00');
+    }
+
+    this.scene.tweens.add({
+      targets: this.multiplierText,
+      scale: { from: 1.5, to: 1 },
+      duration: 300,
+      ease: 'Elastic.easeOut'
+    });
   }
 }
 

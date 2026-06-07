@@ -453,6 +453,8 @@ export interface SaveData {
   highScore: number;
   totalPills: number;
   gamesPlayed: number;
+  riskRewardBestScore: number;
+  riskRewardMode: boolean;
   lastTimeOfDay: TimeOfDay;
   totalDayCycles: number;
   eventsTriggered: number;

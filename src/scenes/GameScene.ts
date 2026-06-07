@@ -60,6 +60,9 @@ export class GameScene extends Phaser.Scene {
   private challengeStartTime: number = 0;
   private challengeHudText!: Phaser.GameObjects.Text;
 
+  private isRiskRewardMode: boolean = false;
+  private currentMultiplier: number = 1.0;
+
   constructor() {
     super('GameScene');
   }
@@ -97,6 +100,11 @@ export class GameScene extends Phaser.Scene {
       this.challengeConfig = data.challengeConfig;
       this.isChallengeMode = true;
       this.challengeStartTime = this.time.now;
+    }
+
+    this.isRiskRewardMode = this.saveManager.isRiskRewardMode();
+    if (this.isRiskRewardMode) {
+      this.currentMultiplier = GameConfig.riskRewardFloorMultipliers[0].multiplier;
     }
 
     const initialTime = this.saveManager.getLastTimeOfDay();
@@ -137,6 +145,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.updateTimeOfDay(this.timeManager.getCurrentTimeOfDay(), this.timeManager.getProgress());
     this.hud.updateCombo(0);
     this.hud.updateNoDamageFloors(0);
+    this.hud.updateMultiplier(this.currentMultiplier, this.isRiskRewardMode);
     this.hud.setShopPurchaseCallback((itemType: ShopItemType) => this.onShopPurchase(itemType));
 
     this.events.on('playerDoubleJump', this.onPlayerDoubleJump, this);
@@ -155,6 +164,45 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.audioManager.playMusic();
+  }
+
+  private getRiskRewardMultiplier(): number {
+    if (!this.isRiskRewardMode) return 1.0;
+    const multipliers = GameConfig.riskRewardFloorMultipliers;
+    let result = multipliers[0].multiplier;
+    for (const mul of multipliers) {
+      if (this.currentFloor + 1 >= mul.floor) {
+        result = mul.multiplier;
+      }
+    }
+    return result;
+  }
+
+  private getRiskRewardDifficultyConfig(): { guardSpawnMul: number; guardSpeedMul: number; pillSpawnMul: number } {
+    if (!this.isRiskRewardMode) {
+      return { guardSpawnMul: 1.0, guardSpeedMul: 1.0, pillSpawnMul: 1.0 };
+    }
+    const ramp = GameConfig.riskRewardDifficultyRamp;
+    let result = ramp[0];
+    for (const config of ramp) {
+      if (this.currentFloor + 1 >= config.floor) {
+        result = config;
+      }
+    }
+    return {
+      guardSpawnMul: result.guardSpawnMul,
+      guardSpeedMul: result.guardSpeedMul,
+      pillSpawnMul: result.pillSpawnMul
+    };
+  }
+
+  private updateRiskRewardMultiplier(): void {
+    if (!this.isRiskRewardMode) return;
+    const newMultiplier = this.getRiskRewardMultiplier();
+    if (newMultiplier !== this.currentMultiplier) {
+      this.currentMultiplier = newMultiplier;
+      this.hud.updateMultiplier(this.currentMultiplier, true);
+    }
   }
 
   private createChallengeHud(): void {
@@ -427,7 +475,7 @@ export class GameScene extends Phaser.Scene {
       delay: 1000,
       callback: () => {
         const scoreMultiplier = this.floorEventManager.getEventEffect('score');
-        const gained = Math.floor(GameConfig.survivalScoreRate * scoreMultiplier);
+        const gained = Math.floor(GameConfig.survivalScoreRate * scoreMultiplier * this.currentMultiplier);
         this.score += gained;
         this.hud.updateScore(this.score);
         this.seasonManager.updateTaskProgress(SeasonTaskType.SCORE, gained);
@@ -470,14 +518,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     const eventMultiplier = this.floorEventManager?.getEventEffect?.('guardSpawn') || 1;
+    const riskRewardConfig = this.getRiskRewardDifficultyConfig();
 
     let delay: number;
     if (this.isChallengeMode) {
       delay = this.challengeConfig?.guardSpawnInterval || GameConfig.guardSpawnInterval;
-      delay = delay / eventMultiplier;
+      delay = delay / (eventMultiplier * riskRewardConfig.guardSpawnMul);
     } else {
       const timeConfig = this.timeManager.getConfig();
-      delay = GameConfig.guardSpawnInterval / (timeConfig.guardSpawnMultiplier * eventMultiplier);
+      delay = GameConfig.guardSpawnInterval / (timeConfig.guardSpawnMultiplier * eventMultiplier * riskRewardConfig.guardSpawnMul);
     }
 
     this.spawnTimer = this.time.addEvent({
@@ -495,14 +544,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     const eventMultiplier = this.floorEventManager?.getEventEffect?.('pillSpawn') || 1;
+    const riskRewardConfig = this.getRiskRewardDifficultyConfig();
 
     let delay: number;
     if (this.isChallengeMode) {
       delay = this.challengeConfig?.pillSpawnInterval || GameConfig.pillSpawnInterval;
-      delay = delay / eventMultiplier;
+      delay = delay / (eventMultiplier * riskRewardConfig.pillSpawnMul);
     } else {
       const timeConfig = this.timeManager.getConfig();
-      delay = GameConfig.pillSpawnInterval / (timeConfig.pillSpawnMultiplier * eventMultiplier);
+      delay = GameConfig.pillSpawnInterval / (timeConfig.pillSpawnMultiplier * eventMultiplier * riskRewardConfig.pillSpawnMul);
     }
 
     this.pillTimer = this.time.addEvent({
@@ -585,18 +635,19 @@ export class GameScene extends Phaser.Scene {
 
     const spawnY = this.cameraTargetY - 100;
     const spawnX = Phaser.Math.Between(60, GameConfig.width - 60);
+    const riskRewardConfig = this.getRiskRewardDifficultyConfig();
 
     let speedMul: number;
     let detectRange: number;
 
     if (this.isChallengeMode) {
-      speedMul = this.challengeConfig?.guardSpeedMultiplier || 1;
-      detectRange = this.challengeConfig?.guardDetectionRange || 150;
+      speedMul = (this.challengeConfig?.guardSpeedMultiplier || 1) * riskRewardConfig.guardSpeedMul;
+      detectRange = Math.floor((this.challengeConfig?.guardDetectionRange || 150) * riskRewardConfig.guardSpeedMul);
     } else {
       const timeConfig = this.timeManager.getConfig();
       const eventDetectionMultiplier = this.floorEventManager.getEventEffect('guardDetection');
-      speedMul = timeConfig.guardSpeedMultiplier;
-      detectRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier);
+      speedMul = timeConfig.guardSpeedMultiplier * riskRewardConfig.guardSpeedMul;
+      detectRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier * riskRewardConfig.guardSpeedMul);
     }
 
     const guard = new Guard(
@@ -653,6 +704,10 @@ export class GameScene extends Phaser.Scene {
       this.floorEventManager.checkFloorEvent(this.currentFloor);
       this.audioManager.play('jump');
 
+      this.updateRiskRewardMultiplier();
+      this.resetSpawnTimer();
+      this.resetPillTimer();
+
       this.noDamageFloorStreak++;
       if (this.noDamageFloorStreak > this.maxNoDamageFloorsInGame) {
         this.maxNoDamageFloorsInGame = this.noDamageFloorStreak;
@@ -667,7 +722,7 @@ export class GameScene extends Phaser.Scene {
 
       const bonus = GameConfig.noDamageFloorBaseBonus + (this.noDamageFloorStreak - 1) * GameConfig.noDamageFloorBonusPerFloor;
       const scoreMultiplier = this.floorEventManager.getEventEffect('score');
-      const finalBonus = Math.floor(bonus * scoreMultiplier);
+      const finalBonus = Math.floor(bonus * scoreMultiplier * this.currentMultiplier);
       this.score += finalBonus;
       this.hud.updateScore(this.score);
       this.hud.showNoDamageBonus(finalBonus, this.noDamageFloorStreak);
@@ -690,7 +745,7 @@ export class GameScene extends Phaser.Scene {
 
     const bonus = GameConfig.comboBaseScore + (this.currentCombo - 1) * GameConfig.comboMultiplierPerCombo;
     const scoreMultiplier = this.floorEventManager.getEventEffect('score');
-    const finalBonus = Math.floor(bonus * scoreMultiplier);
+    const finalBonus = Math.floor(bonus * scoreMultiplier * this.currentMultiplier);
     this.score += finalBonus;
 
     this.hud.updateScore(this.score);
@@ -719,7 +774,7 @@ export class GameScene extends Phaser.Scene {
     this.pillsCollectedTotal++;
 
     const scoreMultiplier = this.floorEventManager.getEventEffect('score');
-    this.score += Math.floor(GameConfig.pillScore * scoreMultiplier);
+    this.score += Math.floor(GameConfig.pillScore * scoreMultiplier * this.currentMultiplier);
 
     this.hud.updatePills(this.pillCount);
     this.hud.updateScore(this.score);
@@ -855,11 +910,15 @@ export class GameScene extends Phaser.Scene {
     const savedHighScore = Math.max(saveData.highScore, this.score);
     const savedMaxCombo = Math.max(saveData.maxCombo || 0, this.maxComboInGame);
     const savedMaxNoDamageFloors = Math.max(saveData.maxNoDamageFloors || 0, this.maxNoDamageFloorsInGame);
+    const savedRiskRewardBestScore = this.isRiskRewardMode
+      ? Math.max(saveData.riskRewardBestScore || 0, this.score)
+      : saveData.riskRewardBestScore || 0;
 
     this.saveManager.saveGameData({
       highScore: savedHighScore,
       totalPills: saveData.totalPills + this.pillsCollectedTotal,
       gamesPlayed: saveData.gamesPlayed + 1,
+      riskRewardBestScore: savedRiskRewardBestScore,
       lastTimeOfDay: this.timeManager.getCurrentTimeOfDay(),
       totalDayCycles: saveData.totalDayCycles + Math.max(0, newCycles),
       eventsTriggered: saveData.eventsTriggered + Math.max(0, newEvents),
@@ -942,15 +1001,16 @@ export class GameScene extends Phaser.Scene {
     const eventGuardSpeedMultiplier = this.floorEventManager?.getEventEffect?.('guardSpeed') || 1;
     const eventDetectionMultiplier = this.floorEventManager?.getEventEffect?.('guardDetection') || 1;
 
+    const riskRewardConfig = this.getRiskRewardDifficultyConfig();
     let guardSpeedMul: number;
     let effectiveDetectionRange: number;
     if (this.isChallengeMode) {
-      guardSpeedMul = this.challengeConfig?.guardSpeedMultiplier || 1;
-      effectiveDetectionRange = this.challengeConfig?.guardDetectionRange || 150;
+      guardSpeedMul = (this.challengeConfig?.guardSpeedMultiplier || 1) * riskRewardConfig.guardSpeedMul;
+      effectiveDetectionRange = Math.floor((this.challengeConfig?.guardDetectionRange || 150) * riskRewardConfig.guardSpeedMul);
     } else {
       const timeConfig = this.timeManager.getConfig();
-      guardSpeedMul = timeConfig.guardSpeedMultiplier;
-      effectiveDetectionRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier);
+      guardSpeedMul = timeConfig.guardSpeedMultiplier * riskRewardConfig.guardSpeedMul;
+      effectiveDetectionRange = Math.floor(timeConfig.guardDetectionRange * eventDetectionMultiplier * riskRewardConfig.guardSpeedMul);
     }
 
     this.guards.forEach(guard => {

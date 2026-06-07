@@ -117,6 +117,30 @@ export class GameConfig {
   static readonly shopEmergencyBounceForce: number = -700;
 
   static readonly dualCharacterSwitchCooldownMs: number = 1500;
+
+  static readonly riskRewardFloorMultipliers: { floor: number; multiplier: number }[] = [
+    { floor: 1, multiplier: 1.5 },
+    { floor: 3, multiplier: 2.0 },
+    { floor: 5, multiplier: 2.8 },
+    { floor: 8, multiplier: 3.8 },
+    { floor: 10, multiplier: 5.0 },
+    { floor: 13, multiplier: 6.5 },
+    { floor: 15, multiplier: 8.5 },
+    { floor: 18, multiplier: 11.0 },
+    { floor: 20, multiplier: 15.0 }
+  ];
+
+  static readonly riskRewardDifficultyRamp: { floor: number; guardSpawnMul: number; guardSpeedMul: number; pillSpawnMul: number }[] = [
+    { floor: 1, guardSpawnMul: 1.2, guardSpeedMul: 1.0, pillSpawnMul: 0.9 },
+    { floor: 3, guardSpawnMul: 1.6, guardSpeedMul: 1.15, pillSpawnMul: 0.75 },
+    { floor: 5, guardSpawnMul: 2.1, guardSpeedMul: 1.3, pillSpawnMul: 0.6 },
+    { floor: 8, guardSpawnMul: 2.8, guardSpeedMul: 1.5, pillSpawnMul: 0.45 },
+    { floor: 10, guardSpawnMul: 3.6, guardSpeedMul: 1.7, pillSpawnMul: 0.35 },
+    { floor: 13, guardSpawnMul: 4.5, guardSpeedMul: 1.9, pillSpawnMul: 0.28 },
+    { floor: 15, guardSpawnMul: 5.5, guardSpeedMul: 2.1, pillSpawnMul: 0.22 },
+    { floor: 18, guardSpawnMul: 6.8, guardSpeedMul: 2.35, pillSpawnMul: 0.18 },
+    { floor: 20, guardSpawnMul: 8.5, guardSpeedMul: 2.6, pillSpawnMul: 0.15 }
+  ];
 }
 
 export const CharacterConfigs: Record<CharacterType, CharacterConfig> = {
