@@ -1,4 +1,4 @@
-import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType, AudioSettings, ReplayData } from '../types';
+import { SaveData, TimeOfDay, TrainingScores, JumpTrainingScore, PillTrainingScore, GuardTrainingScore, EndlessLeaderboardEntry, ArchiveData, ArchiveUnlockCondition, AchievementData, SeasonData, SeasonTaskProgress, ClubData, ClubUpgradeType, AudioSettings, ReplayData, LeaderboardData } from '../types';
 import { GameConfig } from '../config/GameConfig';
 import { getCurrentSeason, pickWeeklyTasks, SeasonCumulativeTasks } from '../config/SeasonConfig';
 
@@ -133,6 +133,10 @@ export class SaveManager {
     adaptiveMixing: true
   };
 
+  private defaultLeaderboardData: LeaderboardData = {
+    entries: []
+  };
+
   private defaultData: SaveData = {
     highScore: 0,
     totalPills: 0,
@@ -168,7 +172,8 @@ export class SaveManager {
     season: this.getDefaultSeasonData(),
     club: this.getDefaultClubData(),
     audio: this.defaultAudioSettings,
-    replayHistory: []
+    replayHistory: [],
+    leaderboard: this.defaultLeaderboardData
   };
 
   private constructor() {
@@ -199,6 +204,11 @@ export class SaveManager {
           audio: {
             ...this.defaultAudioSettings,
             ...(parsed.audio || {})
+          },
+          leaderboard: {
+            ...this.defaultLeaderboardData,
+            ...(parsed.leaderboard || {}),
+            entries: (parsed.leaderboard?.entries) || []
           }
         };
       }
@@ -754,6 +764,19 @@ export class SaveManager {
 
   clearReplayHistory(): void {
     this.saveGameData({ replayHistory: [] });
+  }
+
+  getLeaderboardData(): LeaderboardData {
+    const data = this.getSaveData();
+    return {
+      ...this.defaultLeaderboardData,
+      ...(data.leaderboard || {}),
+      entries: data.leaderboard?.entries || []
+    };
+  }
+
+  saveLeaderboardData(leaderboard: LeaderboardData): void {
+    this.saveGameData({ leaderboard });
   }
 }
 

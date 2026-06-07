@@ -549,6 +549,56 @@ export interface ReplayData {
   lossOfControl: number;
 }
 
+export enum LeaderboardGameMode {
+  NORMAL = 'normal',
+  ENDLESS = 'endless',
+  DUAL = 'dual',
+  STORY = 'story',
+  RISK_REWARD = 'risk_reward'
+}
+
+export const LeaderboardModeLabels: Record<LeaderboardGameMode, string> = {
+  [LeaderboardGameMode.NORMAL]: '经典模式',
+  [LeaderboardGameMode.ENDLESS]: '无尽竞速',
+  [LeaderboardGameMode.DUAL]: '双角色接力',
+  [LeaderboardGameMode.STORY]: '剧情模式',
+  [LeaderboardGameMode.RISK_REWARD]: '风险挑战'
+};
+
+export enum LeaderboardSortType {
+  HIGHEST_FLOOR = 'highest_floor',
+  TOTAL_PILLS = 'total_pills',
+  FASTEST_CLEAR = 'fastest_clear',
+  HIGH_SCORE = 'high_score'
+}
+
+export const LeaderboardSortLabels: Record<LeaderboardSortType, string> = {
+  [LeaderboardSortType.HIGHEST_FLOOR]: '最高楼层',
+  [LeaderboardSortType.TOTAL_PILLS]: '药片收集',
+  [LeaderboardSortType.FASTEST_CLEAR]: '最快通关',
+  [LeaderboardSortType.HIGH_SCORE]: '最高得分'
+};
+
+export interface LeaderboardEntry {
+  id: string;
+  mode: LeaderboardGameMode;
+  score: number;
+  floor: number;
+  pills: number;
+  maxCombo: number;
+  clearTimeMs?: number;
+  date: string;
+  timestamp: number;
+  chapterId?: number;
+  maxAddiction?: number;
+  hallucinations?: number;
+  lossOfControl?: number;
+}
+
+export interface LeaderboardData {
+  entries: LeaderboardEntry[];
+}
+
 export interface SaveData {
   highScore: number;
   totalPills: number;
@@ -580,5 +630,6 @@ export interface SaveData {
   club: ClubData;
   audio: AudioSettings;
   replayHistory: ReplayData[];
+  leaderboard: LeaderboardData;
 }
 

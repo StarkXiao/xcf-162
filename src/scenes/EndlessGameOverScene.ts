@@ -1,16 +1,18 @@
 import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { AudioManager } from '../audio/AudioManager';
-import { EndlessLeaderboardEntry } from '../types';
+import { EndlessLeaderboardEntry, LeaderboardGameMode } from '../types';
 import { ArchiveManager } from '../utils/ArchiveManager';
 import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
 import { AchievementRarityConfig } from '../config/AchievementConfig';
 import { ClubManager } from '../utils/ClubManager';
+import { LeaderboardManager } from '../utils/LeaderboardManager';
 import { SCORE_TO_CLUB_COIN_RATIO } from '../config/ClubConfig';
 
 export class EndlessGameOverScene extends Phaser.Scene {
   private audioManager!: AudioManager;
+  private leaderboardManager!: LeaderboardManager;
   private rawScore: number = 0;
   private finalScore: number = 0;
   private pills: number = 0;
@@ -24,6 +26,7 @@ export class EndlessGameOverScene extends Phaser.Scene {
   private hallucinations: number = 0;
   private lossOfControl: number = 0;
   private clubCoinsEarned: number = 0;
+  private gameDurationMs: number = 0;
 
   constructor() {
     super('EndlessGameOverScene');
@@ -42,8 +45,10 @@ export class EndlessGameOverScene extends Phaser.Scene {
     maxAddiction?: number;
     hallucinations?: number;
     lossOfControl?: number;
+    gameDurationMs?: number;
   }): void {
     this.audioManager = AudioManager.getInstance();
+    this.leaderboardManager = LeaderboardManager.getInstance();
     this.rawScore = data.rawScore;
     this.finalScore = data.finalScore;
     this.pills = data.pills;
@@ -56,10 +61,13 @@ export class EndlessGameOverScene extends Phaser.Scene {
     this.maxAddiction = data.maxAddiction || 0;
     this.hallucinations = data.hallucinations || 0;
     this.lossOfControl = data.lossOfControl || 0;
+    this.gameDurationMs = data.gameDurationMs || 0;
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#1a0a2e');
+
+    this.submitToLeaderboard();
 
     const clubManager = ClubManager.getInstance();
     this.clubCoinsEarned = clubManager.convertScoreToClubCoins(this.finalScore);
@@ -512,6 +520,20 @@ export class EndlessGameOverScene extends Phaser.Scene {
       });
 
       entryY += entrySpacing;
+    });
+  }
+
+  private submitToLeaderboard(): void {
+    this.leaderboardManager.addEntry({
+      mode: LeaderboardGameMode.ENDLESS,
+      score: this.finalScore,
+      floor: this.floor,
+      pills: this.pills,
+      maxCombo: this.maxCombo,
+      clearTimeMs: this.gameDurationMs,
+      maxAddiction: this.maxAddiction,
+      hallucinations: this.hallucinations,
+      lossOfControl: this.lossOfControl
     });
   }
 }

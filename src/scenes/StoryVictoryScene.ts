@@ -2,31 +2,57 @@ import Phaser from 'phaser';
 import { GameConfig } from '../config/GameConfig';
 import { StoryManager } from '../utils/StoryManager';
 import { AudioManager } from '../audio/AudioManager';
+import { LeaderboardManager } from '../utils/LeaderboardManager';
+import { LeaderboardGameMode } from '../types';
 import { StoryConfig } from '../config/StoryConfig';
 
 export class StoryVictoryScene extends Phaser.Scene {
   private storyManager!: StoryManager;
   private audioManager!: AudioManager;
+  private leaderboardManager!: LeaderboardManager;
   private chapterId!: number;
   private score!: number;
   private floor!: number;
   private pills!: number;
+  private clearTimeMs: number = 0;
+  private maxCombo: number = 0;
+  private maxAddiction: number = 0;
+  private hallucinations: number = 0;
+  private lossOfControl: number = 0;
 
   constructor() {
     super('StoryVictoryScene');
   }
 
-  init(data: { chapterId: number; score: number; floor: number; pills: number }): void {
+  init(data: {
+    chapterId: number;
+    score: number;
+    floor: number;
+    pills: number;
+    clearTimeMs?: number;
+    maxCombo?: number;
+    maxAddiction?: number;
+    hallucinations?: number;
+    lossOfControl?: number;
+  }): void {
+    this.storyManager = StoryManager.getInstance();
+    this.audioManager = AudioManager.getInstance();
+    this.leaderboardManager = LeaderboardManager.getInstance();
     this.chapterId = data.chapterId;
     this.score = data.score;
     this.floor = data.floor;
     this.pills = data.pills;
+    this.clearTimeMs = data.clearTimeMs || 0;
+    this.maxCombo = data.maxCombo || 0;
+    this.maxAddiction = data.maxAddiction || 0;
+    this.hallucinations = data.hallucinations || 0;
+    this.lossOfControl = data.lossOfControl || 0;
   }
 
   create(): void {
-    this.storyManager = StoryManager.getInstance();
-    this.audioManager = AudioManager.getInstance();
     this.cameras.main.setBackgroundColor('#0a1a1a');
+
+    this.submitToLeaderboard();
 
     const chapter = this.storyManager.getChapterConfig(this.chapterId);
 
@@ -211,5 +237,20 @@ export class StoryVictoryScene extends Phaser.Scene {
         this.scene.start('MenuScene');
       });
     }
+  }
+
+  private submitToLeaderboard(): void {
+    this.leaderboardManager.addEntry({
+      mode: LeaderboardGameMode.STORY,
+      score: this.score,
+      floor: this.floor,
+      pills: this.pills,
+      maxCombo: this.maxCombo,
+      clearTimeMs: this.clearTimeMs,
+      chapterId: this.chapterId,
+      maxAddiction: this.maxAddiction,
+      hallucinations: this.hallucinations,
+      lossOfControl: this.lossOfControl
+    });
   }
 }

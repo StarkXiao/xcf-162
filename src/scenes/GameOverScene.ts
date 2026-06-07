@@ -6,11 +6,14 @@ import { AchievementManager } from '../utils/AchievementManager';
 import { SeasonManager } from '../utils/SeasonManager';
 import { AchievementRarityConfig } from '../config/AchievementConfig';
 import { SaveManager } from '../utils/SaveManager';
-import { ReplayData } from '../types';
+import { LeaderboardManager } from '../utils/LeaderboardManager';
+import { ReplayData, LeaderboardGameMode } from '../types';
 
 export class GameOverScene extends Phaser.Scene {
   private audioManager!: AudioManager;
   private finalScore: number = 0;
+  private finalPills: number = 0;
+  private finalFloor: number = 0;
   private finalMaxCombo: number = 0;
   private finalMaxNoDamageFloors: number = 0;
   private isNewHighScore: boolean = false;
@@ -26,7 +29,11 @@ export class GameOverScene extends Phaser.Scene {
   private shopPillsSpent: number = 0;
   private replayData: ReplayData | null = null;
   private saveManager!: SaveManager;
+  private leaderboardManager!: LeaderboardManager;
   private replaySaved: boolean = false;
+  private isDualMode: boolean = false;
+  private isRiskRewardMode: boolean = false;
+  private gameDurationMs: number = 0;
 
   constructor() {
     super('GameOverScene');
@@ -50,10 +57,16 @@ export class GameOverScene extends Phaser.Scene {
     shopBounces?: number;
     shopPillsSpent?: number;
     replayData?: ReplayData;
+    isDualMode?: boolean;
+    isRiskRewardMode?: boolean;
+    gameDurationMs?: number;
   }): void {
     this.audioManager = AudioManager.getInstance();
     this.saveManager = SaveManager.getInstance();
+    this.leaderboardManager = LeaderboardManager.getInstance();
     this.finalScore = data.score;
+    this.finalPills = data.pills;
+    this.finalFloor = data.floor;
     this.finalMaxCombo = data.maxCombo || 0;
     this.finalMaxNoDamageFloors = data.maxNoDamageFloors || 0;
     this.isNewHighScore = !!data.isNewHighScore;
@@ -68,11 +81,16 @@ export class GameOverScene extends Phaser.Scene {
     this.shopBounces = data.shopBounces || 0;
     this.shopPillsSpent = data.shopPillsSpent || 0;
     this.replayData = data.replayData || null;
+    this.isDualMode = !!data.isDualMode;
+    this.isRiskRewardMode = !!data.isRiskRewardMode;
+    this.gameDurationMs = data.gameDurationMs || (this.replayData?.gameDuration || 0);
     this.replaySaved = false;
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor('#0a0a1a');
+
+    this.submitToLeaderboard();
 
     this.add.rectangle(GameConfig.width / 2, 0, GameConfig.width, GameConfig.height, 0x000000, 0.8);
 
@@ -511,5 +529,28 @@ export class GameOverScene extends Phaser.Scene {
         ease: 'Sine.easeOut'
       });
     }
+  }
+
+  private submitToLeaderboard(): void {
+    let mode: LeaderboardGameMode;
+    if (this.isDualMode) {
+      mode = LeaderboardGameMode.DUAL;
+    } else if (this.isRiskRewardMode) {
+      mode = LeaderboardGameMode.RISK_REWARD;
+    } else {
+      mode = LeaderboardGameMode.NORMAL;
+    }
+
+    this.leaderboardManager.addEntry({
+      mode,
+      score: this.finalScore,
+      floor: this.finalFloor,
+      pills: this.finalPills,
+      maxCombo: this.finalMaxCombo,
+      clearTimeMs: this.gameDurationMs,
+      maxAddiction: this.maxAddiction,
+      hallucinations: this.hallucinations,
+      lossOfControl: this.lossOfControl
+    });
   }
 }

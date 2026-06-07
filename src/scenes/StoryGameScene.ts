@@ -696,35 +696,27 @@ export class StoryGameScene extends Phaser.Scene {
     this.cameras.main.fade(500, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       const isLast = this.chapterId >= StoryConfig.totalChapters;
+      const victoryData = {
+        chapterId: this.chapterId,
+        score: this.score,
+        floor: this.currentFloor,
+        pills: this.pillsCollectedTotal,
+        clearTimeMs: playTime
+      };
       if (isLast) {
         this.scene.start('CutsceneScene', {
           cutsceneId: 'story_ending',
           nextScene: 'StoryVictoryScene',
-          nextSceneData: {
-            chapterId: this.chapterId,
-            score: this.score,
-            floor: this.currentFloor,
-            pills: this.pillsCollectedTotal
-          }
+          nextSceneData: victoryData
         });
       } else if (this.chapterConfig.outroCutsceneId) {
         this.scene.start('CutsceneScene', {
           cutsceneId: this.chapterConfig.outroCutsceneId,
           nextScene: 'StoryVictoryScene',
-          nextSceneData: {
-            chapterId: this.chapterId,
-            score: this.score,
-            floor: this.currentFloor,
-            pills: this.pillsCollectedTotal
-          }
+          nextSceneData: victoryData
         });
       } else {
-        this.scene.start('StoryVictoryScene', {
-          chapterId: this.chapterId,
-          score: this.score,
-          floor: this.currentFloor,
-          pills: this.pillsCollectedTotal
-        });
+        this.scene.start('StoryVictoryScene', victoryData);
       }
     });
   }

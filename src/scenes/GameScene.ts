@@ -933,7 +933,8 @@ export class GameScene extends Phaser.Scene {
         shopSlowPulses: this.shopPurchaseStats.slowPulsesPurchased,
         shopBounces: this.shopPurchaseStats.emergencyBouncesPurchased,
         shopPillsSpent: this.shopPurchaseStats.totalPillsSpent,
-        replayData: replayData
+        replayData: replayData,
+        isRiskRewardMode: this.isRiskRewardMode
       });
     });
   }

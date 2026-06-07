@@ -376,11 +376,11 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ArchiveScene');
     });
 
-    const replayBtn = this.add.text(GameConfig.width / 2, 770, '📋 历史复盘', {
+    const replayBtn = this.add.text(GameConfig.width / 2 - 80, 770, '📋 历史复盘', {
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: '#6699ff',
-      padding: { left: 20, right: 20, top: 5, bottom: 5 }
+      padding: { left: 16, right: 16, top: 5, bottom: 5 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     replayBtn.on('pointerover', () => {
@@ -395,6 +395,27 @@ export class MenuScene extends Phaser.Scene {
     replayBtn.on('pointerdown', () => {
       this.audioManager.play('select');
       this.scene.start('ReplayScene');
+    });
+
+    const leaderboardBtn = this.add.text(GameConfig.width / 2 + 80, 770, '🏆 排行榜', {
+      fontSize: '14px',
+      color: '#ffffff',
+      backgroundColor: '#ffaa00',
+      padding: { left: 16, right: 16, top: 5, bottom: 5 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    leaderboardBtn.on('pointerover', () => {
+      leaderboardBtn.setBackgroundColor('#ffbb33');
+      this.audioManager.play('hover');
+    });
+
+    leaderboardBtn.on('pointerout', () => {
+      leaderboardBtn.setBackgroundColor('#ffaa00');
+    });
+
+    leaderboardBtn.on('pointerdown', () => {
+      this.audioManager.play('select');
+      this.scene.start('LeaderboardScene');
     });
 
     const saveData = this.saveManager.getSaveData();
